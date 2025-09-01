@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/error/error-boundary";
 import { SkipNav } from "@/components/accessibility/skip-nav";
 import { DevelopmentProvider } from "@/providers/development-provider";
 import { WebVitalsReporter } from "./web-vitals";
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -86,6 +87,7 @@ export default function RootLayout({
               <AuthProvider>
                 <SkipNav />
                 <WebVitalsReporter />
+                <SpeedInsights />
               <ErrorBoundary>
                 <main id="main-content" className="pb-16 md:pb-0">
                   {children}
