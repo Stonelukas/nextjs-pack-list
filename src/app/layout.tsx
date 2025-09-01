@@ -11,7 +11,7 @@ import { SkipNav } from "@/components/accessibility/skip-nav";
 import { DevelopmentProvider } from "@/providers/development-provider";
 import { WebVitalsReporter } from "./web-vitals";
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { Analytics } from '@vercel/analytics/react';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ["latin"] });
 
