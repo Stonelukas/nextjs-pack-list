@@ -3,6 +3,7 @@
 import { useReportWebVitals } from 'next/web-vitals'
 import { useAppPerformanceMonitor } from '@/hooks/usePerformanceMonitor'
 import { reportWebVitalsWithBudget } from '@/lib/performance'
+import { track } from '@vercel/analytics'
 
 export function WebVitalsReporter() {
   const { generatePerformanceReport } = useAppPerformanceMonitor();
@@ -13,6 +14,14 @@ export function WebVitalsReporter() {
 
     // Send to analytics endpoint in production
     if (process.env.NODE_ENV === 'production') {
+      // Send to Vercel Analytics for Web Vitals dashboard
+      track('web_vital', {
+        name: metric.name,
+        value: metric.value,
+        rating: metric.rating,
+        id: metric.id
+      });
+
       const body = JSON.stringify({
         id: metric.id,
         name: metric.name,
@@ -24,8 +33,7 @@ export function WebVitalsReporter() {
         timestamp: new Date().toISOString(),
       })
 
-      // You can send this to your analytics endpoint
-      // Example: send to Vercel Analytics, Google Analytics, or custom endpoint
+      // Also send to Google Analytics if available
       if (typeof window !== 'undefined' && (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag) {
         (window as unknown as { gtag: (...args: unknown[]) => void }).gtag('event', metric.name, {
           value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),

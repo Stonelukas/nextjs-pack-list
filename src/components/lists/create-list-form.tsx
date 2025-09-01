@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePackListStore } from "@/store/usePackListStore";
 import { useAuth } from "@/contexts/auth-context";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
 
   const { createList, templates, applyTemplate } = usePackListStore();
   const { user } = useAuth();
+  const { trackListCreated, trackTemplateUsed } = useAnalytics();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +46,17 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
       if (createFrom === "template" && selectedTemplateId) {
         // Create list from template
         listId = applyTemplate(selectedTemplateId, name.trim());
+        const template = templates.find(t => t.id === selectedTemplateId);
+
+        // Track template usage
+        if (template) {
+          trackTemplateUsed(
+            template.name,
+            template.categories?.length || 0,
+            template.categories?.reduce((total, cat) => total + (cat.items?.length || 0), 0) || 0
+          );
+        }
+        trackListCreated('template', template?.name);
         toast.success("List created from template!");
       } else {
         // Create list from scratch
@@ -55,6 +68,7 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
           isTemplate: false,
           userId: user?.id || "anonymous"
         });
+        trackListCreated('custom');
         toast.success("List created successfully!");
       }
 
