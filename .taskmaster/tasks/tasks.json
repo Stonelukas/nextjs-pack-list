@@ -1,0 +1,481 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Project Setup and Configuration",
+        "description": "Initialize Next.js 14+ project with TypeScript, configure Tailwind CSS and shadcn/ui, and set up the basic project structure.",
+        "details": "1. Create a new Next.js project with TypeScript:\n```bash\nnpx create-next-app@latest pack-list --typescript --tailwind --eslint\n```\n2. Install and configure shadcn/ui:\n```bash\nnpm install @shadcn/ui\nnpx shadcn-ui init\n```\n3. Set up Zustand for state management:\n```bash\nnpm install zustand\n```\n4. Set up React Query for server state:\n```bash\nnpm install @tanstack/react-query\n```\n5. Configure project structure:\n   - `/app`: Next.js app router pages\n   - `/components`: Reusable UI components\n   - `/lib`: Utility functions and hooks\n   - `/store`: Zustand store definitions\n   - `/types`: TypeScript type definitions\n6. Set up basic layout components with responsive design\n7. Configure dark mode support with Tailwind",
+        "testStrategy": "1. Verify all dependencies are correctly installed\n2. Ensure the project builds without errors\n3. Test responsive layout on different screen sizes\n4. Validate dark mode toggle functionality\n5. Run TypeScript type checking to ensure proper configuration",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Next.js Installation and Initial Configuration",
+            "description": "Set up a new Next.js 14+ project with TypeScript and configure the basic development environment.",
+            "dependencies": [],
+            "details": "1. Create a new Next.js project with TypeScript support:\n```bash\nnpx create-next-app@latest pack-list --typescript --tailwind --eslint\n```\n2. Navigate to the project directory:\n```bash\ncd pack-list\n```\n3. Install additional development dependencies:\n```bash\nnpm install -D @types/node @types/react @types/react-dom\n```\n4. Configure ESLint and Prettier for code quality\n5. Test the installation by running the development server:\n```bash\nnpm run dev\n```",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "UI Library Setup with Tailwind and shadcn/ui",
+            "description": "Configure Tailwind CSS and install shadcn/ui components for the user interface.",
+            "dependencies": [],
+            "details": "1. Verify Tailwind CSS is properly configured in tailwind.config.js\n2. Install shadcn/ui:\n```bash\nnpm install @shadcn/ui\nnpx shadcn-ui init\n```\n3. Configure shadcn/ui according to project requirements:\n   - Select appropriate color scheme\n   - Configure component locations\n   - Set up typography settings\n4. Install and configure common UI components:\n```bash\nnpx shadcn-ui add button\nnpx shadcn-ui add card\nnpx shadcn-ui add form\nnpx shadcn-ui add input\n```\n5. Create a basic UI component test page to verify installation",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "State Management Setup",
+            "description": "Implement Zustand for client-side state management and React Query for server state management.",
+            "dependencies": [],
+            "details": "1. Install Zustand for client-side state management:\n```bash\nnpm install zustand\n```\n2. Install React Query for server state management:\n```bash\nnpm install @tanstack/react-query\n```\n3. Set up a basic Zustand store:\n```typescript\n// store/useStore.ts\nimport { create } from 'zustand'\nimport { persist } from 'zustand/middleware'\n\ninterface AppState {\n  // Define your state here\n}\n\nexport const useAppStore = create<AppState>(\n  persist(\n    (set) => ({\n      // Initial state and actions\n    }),\n    { name: 'app-storage' }\n  )\n)\n```\n4. Configure React Query provider in the app layout",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Project Structure and Dark Mode Implementation",
+            "description": "Organize the project structure and implement dark mode support with Tailwind CSS.",
+            "dependencies": [],
+            "details": "1. Set up the project directory structure:\n   - `/app`: Next.js app router pages\n   - `/components`: Reusable UI components\n   - `/lib`: Utility functions and hooks\n   - `/store`: Zustand store definitions\n   - `/types`: TypeScript type definitions\n\n2. Create basic layout components with responsive design:\n```typescript\n// components/layout/MainLayout.tsx\n// components/layout/Header.tsx\n// components/layout/Footer.tsx\n```\n\n3. Implement dark mode support:\n   - Configure Tailwind for dark mode in tailwind.config.js\n   - Create a theme toggle component\n   - Implement theme persistence with localStorage\n\n4. Set up a ThemeProvider component to manage theme state globally",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Data Models and State Management",
+        "description": "Implement TypeScript interfaces for data models and set up Zustand stores for state management with local storage persistence.",
+        "details": "1. Create TypeScript interfaces for data models:\n```typescript\n// types/models.ts\nexport interface User {\n  id: string;\n  email?: string;\n  name?: string;\n  createdAt: Date;\n}\n\nexport interface List {\n  id: string;\n  userId?: string;\n  name: string;\n  description?: string;\n  isTemplate: boolean;\n  createdAt: Date;\n  updatedAt: Date;\n}\n\nexport interface Category {\n  id: string;\n  listId: string;\n  name: string;\n  order: number;\n}\n\nexport enum Priority {\n  ESSENTIAL = 'essential',\n  NICE_TO_HAVE = 'nice-to-have',\n  OPTIONAL = 'optional'\n}\n\nexport interface Item {\n  id: string;\n  categoryId: string;\n  name: string;\n  quantity: number;\n  priority: Priority;\n  isPacked: boolean;\n  notes?: string;\n}\n\nexport interface Template {\n  id: string;\n  name: string;\n  description?: string;\n  categories: Omit<Category, 'listId'>[];\n  items: Omit<Item, 'categoryId'>[];\n  isPublic: boolean;\n}\n```\n\n2. Create Zustand store with local storage persistence:\n```typescript\n// store/listStore.ts\nimport { create } from 'zustand';\nimport { persist } from 'zustand/middleware';\nimport { List, Category, Item } from '../types/models';\nimport { v4 as uuidv4 } from 'uuid';\n\ninterface ListState {\n  lists: List[];\n  categories: Category[];\n  items: Item[];\n  // Actions\n  createList: (name: string, description?: string, isTemplate?: boolean) => string;\n  updateList: (id: string, updates: Partial<Omit<List, 'id'>>) => void;\n  deleteList: (id: string) => void;\n  // Category actions\n  addCategory: (listId: string, name: string) => string;\n  updateCategory: (id: string, updates: Partial<Omit<Category, 'id'>>) => void;\n  deleteCategory: (id: string) => void;\n  // Item actions\n  addItem: (categoryId: string, name: string, quantity?: number, priority?: Priority) => string;\n  updateItem: (id: string, updates: Partial<Omit<Item, 'id'>>) => void;\n  deleteItem: (id: string) => void;\n  toggleItemPacked: (id: string) => void;\n}\n\nexport const useListStore = create<ListState>(\n  persist(\n    (set, get) => ({\n      lists: [],\n      categories: [],\n      items: [],\n      \n      createList: (name, description = '', isTemplate = false) => {\n        const id = uuidv4();\n        const newList: List = {\n          id,\n          name,\n          description,\n          isTemplate,\n          createdAt: new Date(),\n          updatedAt: new Date()\n        };\n        set(state => ({ lists: [...state.lists, newList] }));\n        return id;\n      },\n      \n      // Implement other actions...\n      \n    }),\n    {\n      name: 'pack-list-storage',\n    }\n  )\n);\n```\n\n3. Implement remaining store actions for CRUD operations\n4. Create utility functions for calculating list statistics (completion percentage, etc.)",
+        "testStrategy": "1. Unit test all store actions with Jest\n2. Test local storage persistence by simulating browser refresh\n3. Verify data integrity when performing CRUD operations\n4. Test edge cases like empty lists, duplicate items, etc.\n5. Validate type safety with TypeScript compiler",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define Core Data Model Interfaces",
+            "description": "Create TypeScript interfaces for all data models including User, List, Category, Item, Template, and Priority enum.",
+            "dependencies": [],
+            "details": "1. Create a types/models.ts file\n2. Define User interface with id, email, name, and createdAt fields\n3. Define List interface with all required properties\n4. Define Category interface with id, listId, name, and order fields\n5. Create Priority enum with ESSENTIAL, NICE_TO_HAVE, and OPTIONAL values\n6. Define Item interface with all required properties\n7. Define Template interface for list templates\n8. Add proper TypeScript typing for all fields\n9. Add JSDoc comments for better code documentation",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Set Up Zustand Store with Persistence",
+            "description": "Create the basic Zustand store structure with local storage persistence middleware and define the state interface.",
+            "dependencies": [],
+            "details": "1. Install required dependencies: zustand, uuid\n2. Create store/listStore.ts file\n3. Define ListState interface with all state properties and action types\n4. Set up the basic store with persist middleware\n5. Configure local storage persistence with appropriate storage key\n6. Initialize empty arrays for lists, categories, and items\n7. Export the store hook for use in components\n8. Add TypeScript type safety throughout the store implementation",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement List Management Actions",
+            "description": "Implement all CRUD operations for list management in the Zustand store.",
+            "dependencies": [],
+            "details": "1. Implement createList function that generates a UUID and creates a new list\n2. Implement updateList function to modify list properties\n3. Implement deleteList function that removes a list and its associated categories and items\n4. Add error handling for all list operations\n5. Ensure proper state immutability in all actions\n6. Add validation for required fields\n7. Implement proper date handling for createdAt and updatedAt fields",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Category and Item CRUD Operations",
+            "description": "Implement all actions for managing categories and items within lists, including adding, updating, deleting, and toggling packed status.",
+            "dependencies": [],
+            "details": "1. Implement addCategory function with proper list association\n2. Implement updateCategory function for modifying category properties\n3. Implement deleteCategory function that also removes associated items\n4. Implement addItem function with category association\n5. Implement updateItem function for modifying item properties\n6. Implement deleteItem function\n7. Implement toggleItemPacked function for checking/unchecking items\n8. Add proper error handling and validation for all operations\n9. Ensure correct order handling for categories",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Create Statistics Calculation Utilities",
+            "description": "Develop utility functions for calculating list statistics such as completion percentage, item counts by priority, and category progress.",
+            "dependencies": [],
+            "details": "1. Create lib/statisticsUtils.ts file\n2. Implement calculateListProgress function to determine overall completion percentage\n3. Implement calculateCategoryProgress function for individual category progress\n4. Create getItemsByPriority function to group items by priority level\n5. Implement getPackedItemCount and getTotalItemCount utilities\n6. Create getListSummary function that returns comprehensive statistics for a list\n7. Add proper TypeScript typing for all utility functions\n8. Write JSDoc comments for all functions\n9. Ensure efficient calculations that can handle large lists",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "List Management UI Components",
+        "description": "Develop UI components for creating, viewing, and managing packing lists, including list creation forms and list overview screens.",
+        "details": "1. Create reusable components:\n```typescript\n// components/lists/CreateListForm.tsx\n// Form for creating new lists with name, description fields\n\n// components/lists/ListCard.tsx\n// Card component displaying list summary with actions\n\n// components/lists/ListOverview.tsx\n// Component to display all user lists with filtering options\n\n// components/lists/ListDetail.tsx\n// Detailed view of a single list with categories and items\n```\n\n2. Implement list creation flow:\n   - Modal/form for creating new lists\n   - Option to create from scratch or from template\n   - Form validation for required fields\n\n3. Implement list overview page:\n   - Grid/list view of all user lists\n   - Sort by name, date created, completion status\n   - Quick actions (duplicate, delete, export)\n\n4. Create list detail view:\n   - Header with list name, description, progress\n   - Section for categories\n   - Add category button\n   - List statistics (total items, packed items, etc.)\n\n5. Add list actions:\n   - Edit list properties\n   - Delete list with confirmation\n   - Save as template\n   - Duplicate list",
+        "testStrategy": "1. Component testing with React Testing Library\n2. Test form validation for required fields\n3. Test user interactions (clicks, form submissions)\n4. Verify responsive design on different screen sizes\n5. Test accessibility with keyboard navigation and screen readers\n6. Verify proper state updates when performing actions",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement List Creation Form and Modal",
+            "description": "Develop the form and modal components for creating new packing lists, including validation and template options.",
+            "dependencies": [],
+            "details": "1. Create `CreateListForm.tsx` component with name and description fields\n2. Implement form validation for required fields\n3. Build modal component to contain the form\n4. Add option to create from scratch or from template\n5. Connect form submission to state management\n6. Implement responsive design for mobile and desktop\n7. Add proper accessibility attributes and keyboard navigation",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Develop List Card and Overview Components",
+            "description": "Create components for displaying list summaries and the overview page with filtering and sorting options.",
+            "dependencies": [],
+            "details": "1. Implement `ListCard.tsx` component showing list summary with actions\n2. Create `ListOverview.tsx` component to display all user lists\n3. Add filtering options (by name, date, completion status)\n4. Implement sorting functionality (name, date created, completion)\n5. Add quick action buttons (duplicate, delete, export)\n6. Ensure responsive grid/list view layout\n7. Implement loading states and empty states",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Build List Detail View with Statistics",
+            "description": "Create the detailed view component for a single list, including header, categories section, and statistics.",
+            "dependencies": [],
+            "details": "1. Develop `ListDetail.tsx` component for detailed list view\n2. Create header section with list name, description, and progress\n3. Implement categories section with proper styling\n4. Add 'Add category' button and functionality\n5. Create list statistics section (total items, packed items, etc.)\n6. Ensure responsive layout for all screen sizes\n7. Implement proper loading and error states",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement List Action Handlers",
+            "description": "Create functionality for list actions including editing, deleting, saving as template, and duplicating lists.",
+            "dependencies": [],
+            "details": "1. Implement edit list properties functionality\n2. Create delete list action with confirmation dialog\n3. Develop save as template functionality\n4. Implement duplicate list action\n5. Connect all actions to state management\n6. Add proper error handling for all operations\n7. Ensure all actions have appropriate feedback (toasts, loading states)",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Item and Category Management",
+        "description": "Implement UI components and functionality for managing categories and items within lists, including CRUD operations and drag-and-drop reordering.",
+        "details": "1. Create category components:\n```typescript\n// components/categories/CategorySection.tsx\n// Collapsible section for category with items\n\n// components/categories/CategoryForm.tsx\n// Form for adding/editing categories\n```\n\n2. Create item components:\n```typescript\n// components/items/ItemRow.tsx\n// Component for displaying and interacting with a single item\n\n// components/items/ItemForm.tsx\n// Form for adding/editing items with all properties\n\n// components/items/ItemList.tsx\n// List of items within a category with virtualization for performance\n```\n\n3. Implement drag-and-drop reordering:\n```bash\nnpm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities\n```\n\n```typescript\n// components/dnd/SortableItem.tsx\n// Wrapper component for making items sortable\n\n// components/dnd/SortableCategory.tsx\n// Wrapper component for making categories sortable\n```\n\n4. Implement inline editing for quick updates\n5. Add quantity controls with increment/decrement buttons\n6. Create priority selection dropdown (essential, nice-to-have, optional)\n7. Implement check-off functionality with animations\n8. Add swipe gestures for mobile (mark as packed, delete)",
+        "testStrategy": "1. Test CRUD operations for categories and items\n2. Verify drag-and-drop functionality works correctly\n3. Test inline editing and form validation\n4. Verify mobile swipe gestures work as expected\n5. Test check-off functionality and state updates\n6. Verify keyboard accessibility for all interactions\n7. Test performance with large lists using React profiler",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Category Components Implementation",
+            "description": "Create and implement the category-related UI components for managing categories within lists.",
+            "dependencies": [],
+            "details": "1. Implement CategorySection.tsx as a collapsible section that displays category title and contains items\n2. Create CategoryForm.tsx for adding and editing categories with validation\n3. Add functionality to delete categories with confirmation\n4. Implement category header with edit/delete controls\n5. Add collapsible animation for expanding/collapsing categories\n6. Ensure proper state management for categories using Zustand",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Item Components with Controls",
+            "description": "Develop item-related components with priority selection and quantity controls.",
+            "dependencies": [],
+            "details": "1. Implement ItemRow.tsx for displaying individual items with all properties\n2. Create ItemForm.tsx with fields for name, description, quantity, priority, etc.\n3. Add quantity controls with increment/decrement buttons\n4. Implement priority selection dropdown (essential, nice-to-have, optional)\n5. Create check-off functionality with animations for completed items\n6. Implement ItemList.tsx with virtualization for performance with large lists\n7. Add proper validation for all item form fields",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Drag-and-Drop Reordering",
+            "description": "Implement drag-and-drop functionality for reordering both categories and items using dnd-kit.",
+            "dependencies": [],
+            "details": "1. Install required packages: @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities\n2. Create SortableItem.tsx wrapper component for making items draggable\n3. Implement SortableCategory.tsx for category reordering\n4. Add drag handles and visual feedback during dragging operations\n5. Implement state updates when items/categories are reordered\n6. Ensure keyboard accessibility for drag-and-drop operations\n7. Add animations for smooth transitions during reordering",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Inline Editing Functionality",
+            "description": "Implement inline editing capabilities for quick updates to items and categories without opening forms.",
+            "dependencies": [],
+            "details": "1. Create editable text components for item and category names\n2. Implement click-to-edit functionality for quick text updates\n3. Add auto-focus and blur handling for edit fields\n4. Implement keyboard shortcuts for confirming/canceling edits\n5. Add validation for inline edits\n6. Ensure proper state updates when inline edits are confirmed\n7. Create smooth transitions between view and edit modes",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Mobile Swipe Gestures",
+            "description": "Implement touch-based swipe gestures for mobile devices to perform common actions on items.",
+            "dependencies": [],
+            "details": "1. Research and select appropriate library for handling swipe gestures\n2. Implement swipe-right to mark items as packed/unpacked\n3. Add swipe-left for delete functionality with confirmation\n4. Create visual feedback during swipe operations\n5. Ensure proper haptic feedback on mobile devices\n6. Add animation for revealing action buttons during partial swipes\n7. Implement fallback UI for non-touch devices\n8. Test on various mobile devices and screen sizes",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Progress Tracking and Visualization",
+        "description": "Implement visual indicators for tracking packing progress, including progress bars, completion percentages, and status indicators.",
+        "details": "1. Create progress tracking components:\n```typescript\n// components/progress/ProgressBar.tsx\n// Visual progress bar with percentage\n\n// components/progress/CategoryProgress.tsx\n// Progress indicator for individual categories\n\n// components/progress/ListProgress.tsx\n// Overall list progress with statistics\n```\n\n2. Implement progress calculation utilities:\n```typescript\n// lib/progressUtils.ts\nexport const calculateListProgress = (items: Item[]): number => {\n  if (items.length === 0) return 0;\n  const packedItems = items.filter(item => item.isPacked).length;\n  return Math.round((packedItems / items.length) * 100);\n};\n\nexport const calculateCategoryProgress = (items: Item[], categoryId: string): number => {\n  const categoryItems = items.filter(item => item.categoryId === categoryId);\n  return calculateListProgress(categoryItems);\n};\n\nexport const getProgressColor = (progress: number): string => {\n  if (progress < 30) return 'bg-red-500';\n  if (progress < 70) return 'bg-yellow-500';\n  return 'bg-green-500';\n};\n```\n\n3. Add visual indicators:\n   - Color-coded progress bars\n   - Completion checkmarks\n   - Category collapse/expand based on completion\n   - Confetti animation on list completion\n\n4. Implement priority visualization:\n   - Color-coded or icon-based indicators for item priority\n   - Sorting options based on priority\n   - Filter by priority level",
+        "testStrategy": "1. Unit test progress calculation functions\n2. Test progress updates when items are checked/unchecked\n3. Verify visual indicators update correctly\n4. Test edge cases (empty lists, all items checked)\n5. Verify animations trigger at appropriate times\n6. Test color accessibility for visual indicators\n7. Verify sorting and filtering by priority works correctly",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Progress Calculation Utilities",
+            "description": "Develop and test the utility functions for calculating progress percentages for lists and categories.",
+            "dependencies": [],
+            "details": "1. Create the `progressUtils.ts` file with the following functions:\n- `calculateListProgress`: Calculate overall progress percentage for a list\n- `calculateCategoryProgress`: Calculate progress for a specific category\n- `getProgressColor`: Return appropriate color class based on progress percentage\n\n2. Add additional utility functions:\n- `getCompletionStatus`: Return text status (Not Started/In Progress/Complete)\n- `getItemsStats`: Return object with counts of total, packed, and remaining items\n\n3. Write unit tests for all utility functions including edge cases (empty lists, all items packed, etc.)",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Create Visual Progress Indicator Components",
+            "description": "Develop reusable components for displaying progress visually through bars, percentages, and color-coding.",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "1. Implement the following components:\n- `ProgressBar.tsx`: Reusable progress bar with percentage display\n- `CategoryProgress.tsx`: Progress indicator for individual categories\n- `ListProgress.tsx`: Overall list progress with statistics\n\n2. Add visual enhancements:\n- Color-coded progress bars using the utility functions\n- Completion checkmarks for finished categories\n- Category collapse/expand functionality based on completion status\n- Confetti animation that triggers when a list reaches 100% completion\n\n3. Ensure all components are responsive and accessible",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Priority Visualization and Sorting",
+            "description": "Add visual indicators for item priorities and implement sorting/filtering options based on priority levels.",
+            "dependencies": [
+              "5.2"
+            ],
+            "details": "1. Create priority visualization components:\n- Priority indicators using colors and/or icons\n- Legend explaining priority levels\n\n2. Implement priority-based functionality:\n- Sorting options to arrange items by priority level\n- Filtering controls to show only items of specific priorities\n- Quick priority toggle in item components\n\n3. Update existing components to incorporate priority visualization\n- Add priority indicators to ItemRow component\n- Include priority filters in list views",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Template Library Implementation",
+        "description": "Create a library of pre-built packing list templates for common scenarios and implement functionality for users to save and reuse their own templates.",
+        "details": "1. Create default templates data:\n```typescript\n// data/defaultTemplates.ts\nimport { Template, Priority } from '../types/models';\n\nexport const defaultTemplates: Template[] = [\n  {\n    id: 'beach-vacation',\n    name: 'Beach Vacation',\n    description: 'Essential items for a beach getaway',\n    isPublic: true,\n    categories: [\n      { id: 'beach-clothing', name: 'Clothing', order: 0 },\n      { id: 'beach-toiletries', name: 'Toiletries', order: 1 },\n      { id: 'beach-accessories', name: 'Beach Accessories', order: 2 },\n      { id: 'beach-documents', name: 'Documents', order: 3 },\n    ],\n    items: [\n      { id: 'item-1', name: 'Swimsuit', quantity: 2, priority: Priority.ESSENTIAL, isPacked: false, categoryId: 'beach-clothing' },\n      { id: 'item-2', name: 'Sunscreen', quantity: 1, priority: Priority.ESSENTIAL, isPacked: false, categoryId: 'beach-toiletries' },\n      // Add more template items...\n    ]\n  },\n  // Add more templates (business trip, camping, etc.)\n];\n```\n\n2. Create template browsing UI:\n```typescript\n// components/templates/TemplateLibrary.tsx\n// Grid view of available templates with search/filter\n\n// components/templates/TemplateCard.tsx\n// Card displaying template info with preview and use button\n\n// components/templates/TemplatePreviewer.tsx\n// Modal to preview template contents before using\n```\n\n3. Implement template management:\n   - Save current list as template\n   - Apply template to create new list\n   - Modify template items before creating list\n   - Combine multiple templates\n\n4. Add template categories:\n   - Travel (business, leisure)\n   - Outdoor activities (camping, hiking)\n   - Events (wedding, conference)\n   - Seasonal (summer, winter)",
+        "testStrategy": "1. Verify all default templates load correctly\n2. Test template application to create new lists\n3. Test saving custom lists as templates\n4. Verify template preview functionality\n5. Test template search and filtering\n6. Verify template modifications persist correctly\n7. Test template combination functionality",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Default Templates Data Structure",
+            "description": "Implement a comprehensive library of pre-built packing list templates for common scenarios like travel, outdoor activities, events, and seasonal needs.",
+            "dependencies": [],
+            "details": "1. Complete the defaultTemplates.ts file with at least 5-7 template options\n2. Ensure each template has appropriate categories and items\n3. Add metadata like difficulty, duration, and tags to templates\n4. Create TypeScript interfaces for template-related types\n5. Implement utility functions for template validation and processing",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Develop Template Browsing and Preview UI",
+            "description": "Create the user interface components for browsing, searching, filtering, and previewing templates before application.",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "1. Implement TemplateLibrary component with grid/list view options\n2. Create TemplateCard component with preview thumbnail and metadata\n3. Build TemplatePreviewer modal with detailed template contents\n4. Add search and filter functionality by category, popularity, and tags\n5. Implement responsive design for mobile template browsing",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Template Application and Customization",
+            "description": "Create functionality to apply templates to create new lists, customize templates before application, and save current lists as templates.",
+            "dependencies": [
+              "6.1",
+              "6.2"
+            ],
+            "details": "1. Implement 'Apply Template' functionality to create new lists\n2. Add template customization options before application\n3. Create 'Save as Template' feature for current lists\n4. Implement template combination functionality to merge multiple templates\n5. Add template modification and versioning capabilities",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Add Template Categorization and Management",
+            "description": "Implement template categorization, organization features, and template management functionality for user-created templates.",
+            "dependencies": [
+              "6.1",
+              "6.2",
+              "6.3"
+            ],
+            "details": "1. Implement template categories (Travel, Outdoor, Events, Seasonal)\n2. Create template tagging system for better organization\n3. Add template favoriting and popularity tracking\n4. Implement user template management (edit, delete, share)\n5. Add template import/export functionality",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Search, Filter, and Duplicate Detection",
+        "description": "Implement search functionality across lists and items, filtering options, and duplicate item detection to improve user experience.",
+        "details": "1. Create search components:\n```typescript\n// components/search/SearchBar.tsx\n// Search input with options and results display\n\n// components/search/FilterControls.tsx\n// UI for applying various filters to lists and items\n```\n\n2. Implement search functionality:\n```typescript\n// lib/searchUtils.ts\nexport const searchItems = (items: Item[], query: string): Item[] => {\n  const lowerQuery = query.toLowerCase();\n  return items.filter(item => \n    item.name.toLowerCase().includes(lowerQuery) ||\n    item.notes?.toLowerCase().includes(lowerQuery)\n  );\n};\n\nexport const searchLists = (lists: List[], query: string): List[] => {\n  const lowerQuery = query.toLowerCase();\n  return lists.filter(list => \n    list.name.toLowerCase().includes(lowerQuery) ||\n    list.description?.toLowerCase().includes(lowerQuery)\n  );\n};\n```\n\n3. Implement filtering options:\n   - By category\n   - By priority\n   - By packed status\n   - By date created/modified\n\n4. Create duplicate detection:\n```typescript\n// lib/duplicateUtils.ts\nexport const findPotentialDuplicates = (items: Item[], newItemName: string): Item[] => {\n  const normalized = newItemName.toLowerCase().trim();\n  return items.filter(item => {\n    const itemName = item.name.toLowerCase().trim();\n    return itemName === normalized || \n           levenshteinDistance(itemName, normalized) <= 2 || // Allow for minor typos\n           itemName.includes(normalized) || \n           normalized.includes(itemName);\n  });\n};\n\n// Simple Levenshtein distance implementation for fuzzy matching\nfunction levenshteinDistance(a: string, b: string): number {\n  // Implementation details...\n}\n```\n\n5. Implement duplicate warning UI:\n   - Modal/tooltip showing potential duplicates\n   - Option to add anyway or cancel\n   - Smart suggestions for similar items",
+        "testStrategy": "1. Test search functionality with various queries\n2. Verify filtering works correctly with multiple criteria\n3. Test duplicate detection with similar item names\n4. Verify fuzzy matching for typos and variations\n5. Test search performance with large datasets\n6. Verify UI updates correctly when applying filters\n7. Test duplicate warning UI and user interactions",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Search Components and Functionality",
+            "description": "Create search bar UI components and implement the core search functionality for both items and lists.",
+            "dependencies": [],
+            "details": "1. Develop SearchBar.tsx component with input field, search button, and results display\n2. Implement search functionality in searchUtils.ts for both items and lists\n3. Add keyboard shortcuts for search (Ctrl+F/Cmd+F)\n4. Create search results display component with highlighting of matched terms\n5. Implement search history tracking for quick access to previous searches\n6. Add real-time search as user types with debouncing for performance",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Develop Filter Controls and Filtering Logic",
+            "description": "Create UI components for filtering and implement the filtering logic for various criteria.",
+            "dependencies": [
+              "7.1"
+            ],
+            "details": "1. Build FilterControls.tsx component with various filter options\n2. Implement filtering by category, priority, packed status, and date\n3. Create filter persistence using URL parameters or local storage\n4. Add multi-select filter capabilities\n5. Implement filter combination logic (AND/OR operations)\n6. Create visual indicators for active filters\n7. Add filter presets for common filtering scenarios",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Duplicate Detection Algorithm",
+            "description": "Create the duplicate detection algorithm with Levenshtein distance for fuzzy matching of similar items.",
+            "dependencies": [],
+            "details": "1. Implement the Levenshtein distance algorithm in duplicateUtils.ts\n2. Create findPotentialDuplicates function to detect similar items\n3. Optimize algorithm performance for large datasets\n4. Add configurable sensitivity settings for duplicate detection\n5. Implement normalized string comparison to handle case differences and special characters\n6. Add support for detecting duplicates across different lists\n7. Create unit tests for the duplicate detection algorithm",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Create Duplicate Warning UI and Interaction Handling",
+            "description": "Develop the UI components and interaction flow for warning users about potential duplicates and handling their decisions.",
+            "dependencies": [
+              "7.3"
+            ],
+            "details": "1. Create modal/tooltip component for displaying potential duplicates\n2. Implement UI for showing similar items with highlighting of similarities\n3. Add options to add anyway, cancel, or use existing item\n4. Create smart suggestions for similar items\n5. Implement feedback mechanism to improve duplicate detection\n6. Add settings to configure duplicate detection sensitivity\n7. Ensure accessibility of duplicate warning UI",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Export and Sharing Functionality",
+        "description": "Implement functionality to export lists in different formats (PDF, text) and generate shareable links for collaborative packing.",
+        "details": "1. Install necessary dependencies:\n```bash\nnpm install jspdf html-to-image file-saver\n```\n\n2. Create export utilities:\n```typescript\n// lib/exportUtils.ts\nimport { jsPDF } from 'jspdf';\nimport { toPng } from 'html-to-image';\nimport { saveAs } from 'file-saver';\nimport { List, Category, Item } from '../types/models';\n\nexport const exportAsPDF = async (listId: string, elementRef: React.RefObject<HTMLElement>) => {\n  if (!elementRef.current) return;\n  \n  const pdf = new jsPDF('p', 'mm', 'a4');\n  const canvas = await toPng(elementRef.current);\n  \n  const imgProps = pdf.getImageProperties(canvas);\n  const pdfWidth = pdf.internal.pageSize.getWidth();\n  const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;\n  \n  pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);\n  pdf.save(`packing-list-${listId}.pdf`);\n};\n\nexport const exportAsText = (list: List, categories: Category[], items: Item[]) => {\n  let content = `${list.name}\\n${'='.repeat(list.name.length)}\\n\\n`;\n  \n  if (list.description) {\n    content += `${list.description}\\n\\n`;\n  }\n  \n  const listCategories = categories.filter(c => c.listId === list.id);\n  \n  listCategories.forEach(category => {\n    content += `## ${category.name}\\n`;\n    \n    const categoryItems = items.filter(item => item.categoryId === category.id);\n    categoryItems.forEach(item => {\n      const status = item.isPacked ? '[x]' : '[ ]';\n      content += `${status} ${item.quantity > 1 ? `${item.quantity}x ` : ''}${item.name}${item.priority !== 'nice-to-have' ? ` (${item.priority})` : ''}\\n`;\n    });\n    \n    content += '\\n';\n  });\n  \n  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });\n  saveAs(blob, `packing-list-${list.id}.txt`);\n};\n```\n\n3. Create print-friendly view:\n```typescript\n// components/export/PrintView.tsx\n// Clean, printer-optimized view of the list\n\n// app/print/[listId]/page.tsx\n// Dedicated print page with minimal UI\n```\n\n4. Implement sharing functionality:\n   - Generate unique shareable URLs\n   - Create view-only mode for shared lists\n   - Add copy-to-clipboard functionality\n   - Implement QR code generation for easy mobile sharing",
+        "testStrategy": "1. Test PDF export with various list sizes and content\n2. Verify text export format is readable and complete\n3. Test print view rendering and print media CSS\n4. Verify sharing links work correctly\n5. Test view-only mode security and permissions\n6. Verify QR code generation and scanning\n7. Test copy-to-clipboard functionality across browsers",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "PDF Export Implementation",
+            "description": "Implement the PDF export functionality using jsPDF and html-to-image libraries",
+            "dependencies": [],
+            "details": "1. Complete the exportAsPDF function in exportUtils.ts\n2. Create a UI component for triggering PDF exports\n3. Add error handling for PDF generation failures\n4. Implement loading states during PDF generation\n5. Test with various list sizes and content types\n6. Ensure proper styling in the exported PDF",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Text Export Functionality",
+            "description": "Implement text export functionality for packing lists with proper formatting",
+            "dependencies": [],
+            "details": "1. Complete the exportAsText function in exportUtils.ts\n2. Create a UI component for triggering text exports\n3. Ensure proper formatting of categories, items, and metadata\n4. Handle special characters and multi-line content\n5. Test with various list configurations\n6. Add file naming options for exported text files",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Print-Friendly View Implementation",
+            "description": "Create a dedicated print-friendly view for packing lists with optimized layout",
+            "dependencies": [],
+            "details": "1. Implement PrintView.tsx component with clean, printer-optimized styling\n2. Create the print/[listId]/page.tsx route for dedicated printing\n3. Add print-specific CSS with proper page breaks and layout\n4. Implement a print button that triggers browser print functionality\n5. Ensure consistent rendering across different browsers\n6. Test with various paper sizes and orientations",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Sharing Functionality",
+            "description": "Implement sharing features including shareable URLs and QR code generation",
+            "dependencies": [],
+            "details": "1. Create a database schema for shared lists with access controls\n2. Implement API endpoints for generating and validating share links\n3. Create a view-only mode for shared lists\n4. Implement copy-to-clipboard functionality for share links\n5. Add QR code generation for easy mobile sharing\n6. Implement share permission management (view-only vs. collaborative)\n7. Add expiration options for shared links",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Mobile Responsiveness and Gestures",
+        "description": "Optimize the application for mobile devices with responsive design, touch gestures, and mobile-specific UI enhancements.",
+        "details": "1. Implement responsive layouts:\n   - Use Tailwind's responsive classes for all components\n   - Create mobile-specific variants of complex components\n   - Implement collapsible sections for better mobile viewing\n   - Optimize touch targets for mobile (min 44x44px)\n\n2. Add touch gestures:\n```bash\nnpm install @use-gesture/react\n```\n\n```typescript\n// components/gestures/SwipeableItem.tsx\nimport { useSpring, animated } from '@react-spring/web';\nimport { useDrag } from '@use-gesture/react';\n\nconst SwipeableItem = ({ item, onToggle, onDelete }) => {\n  const [{ x }, api] = useSpring(() => ({ x: 0 }));\n  \n  const bind = useDrag(({ down, movement: [mx], direction: [xDir], velocity: [vx], cancel }) => {\n    // Swipe logic implementation\n    if (down && Math.abs(mx) > 100) {\n      cancel();\n      if (mx > 0) {\n        onToggle(item.id);\n      } else {\n        onDelete(item.id);\n      }\n    }\n    api.start({ x: down ? mx : 0, immediate: down });\n  });\n  \n  return (\n    <animated.div {...bind()} style={{ x }} className=\"touch-none\">\n      {/* Item content */}\n    </animated.div>\n  );\n};\n```\n\n3. Implement mobile-specific features:\n   - Bottom navigation bar for main actions\n   - Pull-to-refresh for list updates\n   - Floating action button for adding items\n   - Mobile-optimized forms with larger inputs\n\n4. Add offline support:\n   - Service worker registration\n   - Offline indicator\n   - Queue changes for sync when back online",
+        "testStrategy": "1. Test on various mobile devices and screen sizes\n2. Verify touch gestures work correctly on iOS and Android\n3. Test offline functionality and data persistence\n4. Verify performance on low-end mobile devices\n5. Test with different network conditions (slow, intermittent)\n6. Verify touch targets are accessible and easy to hit\n7. Test with different browser zoom levels",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4,
+          5
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Accessibility and Final Polish",
+        "description": "Ensure the application meets WCAG 2.1 AA standards, implement dark mode, and add final polish with animations and error handling.",
+        "details": "1. Implement accessibility features:\n   - Proper heading hierarchy\n   - ARIA labels and roles\n   - Focus management\n   - Skip links\n   - Keyboard navigation\n   - Screen reader testing\n\n2. Add dark mode support:\n```typescript\n// components/theme/ThemeToggle.tsx\n// Toggle button for switching between light and dark mode\n\n// lib/themeUtils.ts\n// Utilities for managing theme preferences\n```\n\n3. Implement animations and transitions:\n```bash\nnpm install framer-motion\n```\n\n```typescript\n// components/animations/FadeIn.tsx\nimport { motion } from 'framer-motion';\n\nconst FadeIn = ({ children }) => (\n  <motion.div\n    initial={{ opacity: 0 }}\n    animate={{ opacity: 1 }}\n    exit={{ opacity: 0 }}\n    transition={{ duration: 0.3 }}\n  >\n    {children}\n  </motion.div>\n);\n```\n\n4. Add error handling:\n   - Error boundaries for component failures\n   - Toast notifications for errors\n   - Fallback UI for failed data loading\n   - Form validation error messages\n\n5. Implement performance optimizations:\n   - Memoization of expensive calculations\n   - Virtualized lists for large datasets\n   - Code splitting for large components\n   - Image optimization",
+        "testStrategy": "1. Run accessibility audits with Lighthouse and axe\n2. Test with screen readers (NVDA, VoiceOver)\n3. Verify keyboard navigation works for all interactions\n4. Test dark mode in different lighting conditions\n5. Verify animations don't cause layout shifts\n6. Test error handling with simulated failures\n7. Measure and verify performance metrics (LCP, FID, CLS)\n8. Conduct final cross-browser testing",
+        "priority": "high",
+        "dependencies": [
+          1,
+          3,
+          4,
+          9
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Analyze Pack List app state with Kapture MCP",
+        "description": "Use the Kapture MCP server to analyze the current state and functionality of the Pack List application by viewing and interacting with it in the browser",
+        "details": "Connect to the running Pack List application through Kapture MCP server and perform a comprehensive analysis of its current state, features, and functionality",
+        "testStrategy": "Manual testing through browser interaction via Kapture MCP",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-09-01T16:40:38.474Z",
+      "updated": "2025-09-01T18:55:38.085Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

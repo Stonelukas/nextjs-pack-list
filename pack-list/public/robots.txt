@@ -1,0 +1,10 @@
+# Robots.txt for Pack List
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /_next/
+Disallow: /static/
+
+# Sitemap location
+Sitemap: https://packlist.app/sitemap.xml
