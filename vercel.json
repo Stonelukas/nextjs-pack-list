@@ -1,0 +1,8 @@
+{
+  "analytics": {
+    "enable": true
+  },
+  "speedInsights": {
+    "enable": true
+  }
+}
