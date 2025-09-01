@@ -76,7 +76,7 @@ export function TemplateManager({ template, onClose }: TemplateManagerProps) {
   
   // Debounced form change handler for better performance
   const debouncedFormChange = useCallback(
-    debounce((field: string, value: any) => {
+    debounce((field: keyof typeof editForm, value: string | boolean) => {
       setEditForm(prev => ({ ...prev, [field]: value }));
     }, 300),
     []

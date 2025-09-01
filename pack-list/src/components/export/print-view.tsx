@@ -1,6 +1,6 @@
 "use client"
 
-import { List, Category, Item } from "@/types";
+import { List, Category, Item, Priority } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface PrintViewProps {
@@ -17,7 +17,7 @@ export function PrintView({
   className,
 }: PrintViewProps) {
   const totalItems = items.length;
-  const packedItems = items.filter(item => item.isPacked).length;
+  const packedItems = items.filter(item => item.packed).length;
   const completionPercentage = totalItems > 0 
     ? Math.round((packedItems / totalItems) * 100) 
     : 0;
@@ -31,7 +31,6 @@ export function PrintView({
           <p className="text-gray-600">{list.description}</p>
         )}
         <div className="mt-4 text-sm text-gray-500">
-          <div>Trip Type: {list.tripType || "General"}</div>
           <div>Progress: {packedItems}/{totalItems} items packed ({completionPercentage}%)</div>
           <div>Generated: {new Date().toLocaleDateString()}</div>
         </div>
@@ -60,7 +59,7 @@ export function PrintView({
                     className="flex items-start gap-3 pl-4"
                   >
                     <span className="text-lg mt-0.5">
-                      {item.isPacked ? "☑" : "☐"}
+                      {item.packed ? "☑" : "☐"}
                     </span>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -68,11 +67,11 @@ export function PrintView({
                           <span className="font-medium">{item.quantity}x</span>
                         )}
                         <span className={cn(
-                          item.isPacked && "line-through text-gray-500"
+                          item.packed && "line-through text-gray-500"
                         )}>
                           {item.name}
                         </span>
-                        {item.priority !== "nice-to-have" && (
+                        {item.priority !== Priority.LOW && (
                           <span className="text-xs text-gray-500 italic">
                             ({item.priority})
                           </span>

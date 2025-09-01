@@ -91,27 +91,17 @@ export function ListDetail({ listId }: ListDetailProps) {
   );
   
   // Extract all items from categories for export functionality
-  const listItems = useMemo(() => 
+  const listItems = useMemo(() =>
     listCategories.flatMap(category => category.items || []),
     [listCategories]
   );
-
-  if (!list) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16">
-        <Package className="h-16 w-16 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">List not found</h2>
-        <p className="text-muted-foreground">The list you&apos;re looking for doesn&apos;t exist.</p>
-      </div>
-    );
-  }
 
   // Debounced category name input for better performance
   const debouncedSetCategoryName = useCallback(
     debounce((value: string) => {
       setNewCategoryName(value);
     }, 300),
-    []
+    [setNewCategoryName]
   );
 
   const handleAddCategory = useCallback(() => {
@@ -142,13 +132,28 @@ export function ListDetail({ listId }: ListDetailProps) {
     if (active.id !== over?.id) {
       const oldIndex = listCategories.findIndex((cat) => cat.id === active.id);
       const newIndex = listCategories.findIndex((cat) => cat.id === over?.id);
-      
+
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(listCategories, oldIndex, newIndex);
-        reorderCategories(listId, newOrder.map(cat => cat.id));
+        const newCategories = arrayMove(listCategories, oldIndex, newIndex);
+        const updatedCategories = newCategories.map((cat, index) => ({
+          ...cat,
+          order: index
+        }));
+
+        reorderCategories(listId, updatedCategories.map(cat => cat.id));
       }
     }
   }, [listCategories, listId, reorderCategories]);
+
+  if (!list) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <Package className="h-16 w-16 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold mb-2">List not found</h2>
+        <p className="text-muted-foreground">The list you&apos;re looking for doesn&apos;t exist.</p>
+      </div>
+    );
+  }
 
   const getPriorityColor = (priority: Priority) => {
     switch (priority) {

@@ -24,13 +24,14 @@ export function useOptimizedList(listId: string) {
     if (!list) return null;
     
     const totalItems = items.length;
-    const packedItems = items.filter(item => item.isPacked).length;
+    const packedItems = items.filter(item => item.packed).length;
     const priorityCounts = {
       essential: items.filter(item => item.priority === 'essential').length,
-      important: items.filter(item => item.priority === 'important').length,
-      'nice-to-have': items.filter(item => item.priority === 'nice-to-have').length,
+      high: items.filter(item => item.priority === 'high').length,
+      medium: items.filter(item => item.priority === 'medium').length,
+      low: items.filter(item => item.priority === 'low').length,
     };
-    
+
     return {
       totalItems,
       packedItems,
@@ -38,7 +39,7 @@ export function useOptimizedList(listId: string) {
       priorityCounts,
       essentialsPacked: items
         .filter(item => item.priority === 'essential')
-        .every(item => item.isPacked),
+        .every(item => item.packed),
     };
   }, [list, items]);
   

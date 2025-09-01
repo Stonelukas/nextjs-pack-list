@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Package, Plus, Sparkles, CheckCircle, List, Share2 } from "lucide-react";
-import { FadeIn, StaggerChildren, SlideIn } from "@/components/animations/fade-in";
+import { FadeIn } from "@/components/animations/fade-in";
 import { motion } from "framer-motion";
 
 export default function Home() {

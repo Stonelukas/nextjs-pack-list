@@ -16,88 +16,474 @@ Reusable code patterns and snippets for common development tasks in task-master-
 
 ### Naming Conventions
 ```typescript
-// Files: snake_case, kebab-case, or PascalCase
-// Variables: camelCase or snake_case
+// Files: kebab-case for components, camelCase for utilities
+// pack-list-component.tsx, usePackListStore.ts
+
+// Variables and Functions: camelCase
+const currentListId = 'list-123';
+const handleCreateList = () => {};
+
 // Constants: UPPER_SNAKE_CASE
-// Classes/Types: PascalCase
-// Functions: camelCase or snake_case
+const STORAGE_KEYS = {
+  PACK_LIST: 'pack-list-storage',
+  USER_PREFERENCES: 'user-preferences'
+} as const;
+
+// Types and Interfaces: PascalCase
+interface PackListStore { }
+type Priority = 'low' | 'medium' | 'high' | 'essential';
+
+// Enums: PascalCase with UPPER_SNAKE_CASE values
+enum Priority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  ESSENTIAL = 'essential'
+}
 ```
 
 ### File Organization
 ```
-feature/
-├── index.ts        # Public API
-├── types.ts        # Type definitions
-├── implementation.ts # Core logic
-├── tests.ts        # Unit tests
-└── README.md            # Documentation
+pack-list/src/
+├── app/                    # Next.js App Router pages
+│   ├── layout.tsx         # Root layout
+│   ├── page.tsx           # Homepage
+│   └── lists/             # List pages
+├── components/            # React components
+│   ├── ui/               # Base UI components (Shadcn)
+│   ├── lists/            # List-specific components
+│   ├── templates/        # Template components
+│   └── mobile/           # Mobile-specific components
+├── store/                # State management
+│   └── usePackListStore.ts
+├── types/                # TypeScript definitions
+│   └── index.ts
+├── hooks/                # Custom React hooks
+├── lib/                  # Utility functions
+└── constants/            # Application constants
+
+.taskmaster/
+├── docs/                 # Documentation
+├── tasks/                # Task database
+├── config.json          # AI configuration
+└── reports/              # Analysis reports
 ```
 
 ---
 
 ## Common Patterns
 
-### Pattern Template
+### Zustand Store Pattern
 ```typescript
 /**
- * Pattern Name: Brief description
- * Use Case: When to use this pattern
- * Benefits: Why use this pattern
+ * Pattern Name: Zustand Store with Immer and Persistence
+ * Use Case: Global state management with immutable updates and local storage
+ * Benefits: Type-safe, performant, automatic persistence, immutable updates
  */
 
 // Implementation
-class PatternExample {
-    // Code here
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+
+interface StoreState {
+  data: DataType[];
+  currentId: string | null;
+
+  // Actions
+  createItem: (item: CreateInput) => string;
+  updateItem: (id: string, updates: Partial<DataType>) => void;
+  deleteItem: (id: string) => void;
+}
+
+export const useStore = create<StoreState>()(
+  persist(
+    immer((set, get) => ({
+      data: [],
+      currentId: null,
+
+      createItem: (item) => {
+        const id = generateId();
+        set(state => {
+          state.data.push({ ...item, id, createdAt: new Date() });
+        });
+        return id;
+      },
+
+      updateItem: (id, updates) => set(state => {
+        const item = state.data.find(item => item.id === id);
+        if (item) {
+          Object.assign(item, updates, { updatedAt: new Date() });
+        }
+      }),
+
+      deleteItem: (id) => set(state => {
+        state.data = state.data.filter(item => item.id !== id);
+      }),
+    })),
+    {
+      name: 'app-storage',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+
+// Usage Example
+const MyComponent = () => {
+  const { data, createItem, updateItem } = useStore();
+
+  const handleCreate = () => {
+    const id = createItem({ name: 'New Item' });
+    console.log('Created item:', id);
+  };
+
+  return <div>{/* Component JSX */}</div>;
+};
+
+// Anti-pattern (what NOT to do)
+// ❌ Don't mutate state directly
+// state.data.push(newItem); // This breaks immutability
+// ✅ Use Immer's draft state instead
+// set(state => { state.data.push(newItem); });
+```
+
+### React Component with Hooks Pattern
+```typescript
+/**
+ * Pattern Name: Functional Component with Custom Hooks
+ * Use Case: Reusable component logic with proper separation of concerns
+ * Benefits: Testable, reusable, follows React best practices
+ */
+
+// Custom Hook
+export const useListManagement = (listId: string) => {
+  const { lists, updateList, addCategory, addItem } = usePackListStore();
+  const [loading, setLoading] = useState(false);
+
+  const list = useMemo(() =>
+    lists.find(l => l.id === listId),
+    [lists, listId]
+  );
+
+  const handleAddCategory = useCallback(async (name: string) => {
+    setLoading(true);
+    try {
+      const categoryId = addCategory(listId, {
+        name,
+        color: generateColor(),
+        order: list?.categories.length || 0,
+        items: [],
+      });
+      return categoryId;
+    } finally {
+      setLoading(false);
+    }
+  }, [listId, addCategory, list?.categories.length]);
+
+  return {
+    list,
+    loading,
+    handleAddCategory,
+  };
+};
+
+// Component Implementation
+interface ListDetailProps {
+  listId: string;
+}
+
+export const ListDetail: React.FC<ListDetailProps> = ({ listId }) => {
+  const { list, loading, handleAddCategory } = useListManagement(listId);
+
+  if (!list) {
+    return <div>List not found</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">{list.name}</h1>
+      {list.categories.map(category => (
+        <CategoryComponent key={category.id} category={category} />
+      ))}
+      <Button
+        onClick={() => handleAddCategory('New Category')}
+        disabled={loading}
+      >
+        Add Category
+      </Button>
+    </div>
+  );
+};
+
+// Anti-pattern (what NOT to do)
+// ❌ Don't put all logic in component
+// ❌ Don't forget memoization for expensive calculations
+// ❌ Don't use inline functions in JSX for event handlers
+```
+
+### Error Boundary Pattern
+```typescript
+/**
+ * Pattern Name: React Error Boundary with Fallback UI
+ * Use Case: Graceful error handling in React components
+ * Benefits: Prevents app crashes, provides user-friendly error messages
+ */
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends React.Component<
+  React.PropsWithChildren<{}>,
+  ErrorBoundaryState
+> {
+  constructor(props: React.PropsWithChildren<{}>) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+    // Log to error reporting service
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-fallback">
+          <h2>Something went wrong</h2>
+          <p>{this.state.error?.message}</p>
+          <button onClick={() => this.setState({ hasError: false })}>
+            Try again
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 // Usage Example
-const example = new PatternExample();
-
-// Anti-pattern (what NOT to do)
-// Bad example with explanation
+<ErrorBoundary>
+  <PackListApp />
+</ErrorBoundary>
 ```
 
-### Singleton Pattern (if applicable)
+### Performance Monitoring Hook Pattern
 ```typescript
-class Singleton {
-    private static instance: Singleton;
-    
-    private constructor() {}
-    
-    public static getInstance(): Singleton {
-        if (!Singleton.instance) {
-            Singleton.instance = new Singleton();
-        }
-        return Singleton.instance;
+/**
+ * Pattern Name: Performance Monitoring Hook
+ * Use Case: Track component render times and performance metrics
+ * Benefits: Identify performance bottlenecks, optimize user experience
+ */
+
+interface PerformanceMetrics {
+  renderTime: number;
+  componentName: string;
+  timestamp: Date;
+}
+
+export const usePerformanceMonitor = (componentName: string) => {
+  const metricsRef = useRef<PerformanceMetrics[]>([]);
+
+  const measureRender = useCallback(<T>(fn: () => T): T => {
+    const start = performance.now();
+    const result = fn();
+    const end = performance.now();
+
+    metricsRef.current.push({
+      renderTime: end - start,
+      componentName,
+      timestamp: new Date(),
+    });
+
+    // Log slow renders
+    if (end - start > 16) { // 60fps threshold
+      console.warn(`Slow render in ${componentName}: ${end - start}ms`);
     }
-}
+
+    return result;
+  }, [componentName]);
+
+  const getMetrics = useCallback(() => metricsRef.current, []);
+
+  return { measureRender, getMetrics };
+};
+
+// Usage Example
+const ExpensiveComponent = () => {
+  const { measureRender } = usePerformanceMonitor('ExpensiveComponent');
+
+  const expensiveCalculation = useMemo(() =>
+    measureRender(() => {
+      // Expensive computation
+      return heavyCalculation();
+    }),
+    [measureRender]
+  );
+
+  return <div>{expensiveCalculation}</div>;
+};
 ```
 
-### Factory Pattern (if applicable)
+### Command Pattern for CLI Operations
 ```typescript
-interface Product {
-    operation(): string;
+/**
+ * Pattern Name: Command Pattern for Task Master CLI
+ * Use Case: Encapsulate CLI operations as objects for undo/redo, logging
+ * Benefits: Extensible, testable, supports complex workflows
+ */
+
+interface Command {
+  execute(): Promise<void>;
+  undo?(): Promise<void>;
+  description: string;
 }
 
-class ConcreteFactory {
-    public createProduct(type: string): Product {
-        switch(type) {
-            case 'A': return new ProductA();
-            case 'B': return new ProductB();
-            default: throw new Error('Unknown type');
-        }
+class CreateTaskCommand implements Command {
+  description = 'Create new task';
+
+  constructor(
+    private taskData: CreateTaskInput,
+    private taskService: TaskService
+  ) {}
+
+  async execute(): Promise<void> {
+    const task = await this.taskService.createTask(this.taskData);
+    console.log(`Created task: ${task.title} (${task.id})`);
+  }
+
+  async undo(): Promise<void> {
+    // Implementation for undo
+  }
+}
+
+class UpdateTaskStatusCommand implements Command {
+  description: string;
+
+  constructor(
+    private taskId: string,
+    private newStatus: TaskStatus,
+    private taskService: TaskService
+  ) {
+    this.description = `Update task ${taskId} status to ${newStatus}`;
+  }
+
+  async execute(): Promise<void> {
+    await this.taskService.updateTaskStatus(this.taskId, this.newStatus);
+    console.log(`Updated task ${this.taskId} status to ${this.newStatus}`);
+  }
+}
+
+// Command Invoker
+class TaskMasterCLI {
+  private history: Command[] = [];
+
+  async executeCommand(command: Command): Promise<void> {
+    try {
+      await command.execute();
+      this.history.push(command);
+    } catch (error) {
+      console.error(`Failed to execute: ${command.description}`, error);
+      throw error;
     }
+  }
+
+  async undoLastCommand(): Promise<void> {
+    const lastCommand = this.history.pop();
+    if (lastCommand?.undo) {
+      await lastCommand.undo();
+    }
+  }
 }
+
+// Usage Example
+const cli = new TaskMasterCLI();
+const createCommand = new CreateTaskCommand(
+  { title: 'New Task', description: 'Task description' },
+  taskService
+);
+
+await cli.executeCommand(createCommand);
 ```
 
-### Builder Pattern (if applicable)
+### Template Method Pattern for AI Providers
 ```typescript
-class Builder {
-    private product: Product = new Product();
-    
-    public addPartA(): this {
-        // Add part A
-        return this;
+/**
+ * Pattern Name: Template Method for AI Provider Integration
+ * Use Case: Standardize AI provider interactions while allowing customization
+ * Benefits: Consistent interface, easy to add new providers
+ */
+
+abstract class AIProvider {
+  abstract providerName: string;
+  abstract apiKey: string;
+
+  // Template method
+  async generateResponse(prompt: string, options: AIOptions): Promise<string> {
+    this.validateInput(prompt, options);
+    const formattedPrompt = this.formatPrompt(prompt, options);
+    const response = await this.callAPI(formattedPrompt, options);
+    return this.processResponse(response);
+  }
+
+  protected validateInput(prompt: string, options: AIOptions): void {
+    if (!prompt.trim()) {
+      throw new Error('Prompt cannot be empty');
+    }
+    if (!this.apiKey) {
+      throw new Error(`API key required for ${this.providerName}`);
+    }
+  }
+
+  protected abstract formatPrompt(prompt: string, options: AIOptions): string;
+  protected abstract callAPI(prompt: string, options: AIOptions): Promise<any>;
+  protected abstract processResponse(response: any): string;
+}
+
+class AnthropicProvider extends AIProvider {
+  providerName = 'Anthropic';
+  apiKey = process.env.ANTHROPIC_API_KEY!;
+
+  protected formatPrompt(prompt: string, options: AIOptions): string {
+    return `Human: ${prompt}\n\nAssistant:`;
+  }
+
+  protected async callAPI(prompt: string, options: AIOptions): Promise<any> {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: options.modelId || 'claude-3-sonnet-20240229',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || 4000,
+      }),
+    });
+
+    return response.json();
+  }
+
+  protected processResponse(response: any): string {
+    return response.content[0].text;
+  }
+}
+
+// Usage Example
+const provider = new AnthropicProvider();
+const response = await provider.generateResponse(
+  'Analyze this task complexity',
+  { modelId: 'claude-3-sonnet-20240229', maxTokens: 1000 }
+);
+```
     }
     
     public addPartB(): this {

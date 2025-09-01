@@ -3,10 +3,12 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { QueryProvider } from "@/providers/query-provider";
+import { AuthProvider } from "@/contexts/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { MobileNav } from "@/components/mobile/mobile-nav";
 import { ErrorBoundary } from "@/components/error/error-boundary";
 import { SkipNav } from "@/components/accessibility/skip-nav";
+import { DevelopmentProvider } from "@/providers/development-provider";
 import { WebVitalsReporter } from "./web-vitals";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -79,17 +81,21 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <QueryProvider>
-            <SkipNav />
-            <WebVitalsReporter />
-            <ErrorBoundary>
-              <main id="main-content" className="pb-16 md:pb-0">
-                {children}
-              </main>
-            </ErrorBoundary>
-            <MobileNav />
-            <Toaster />
-          </QueryProvider>
+          <DevelopmentProvider>
+            <QueryProvider>
+              <AuthProvider>
+                <SkipNav />
+                <WebVitalsReporter />
+              <ErrorBoundary>
+                <main id="main-content" className="pb-16 md:pb-0">
+                  {children}
+                </main>
+              </ErrorBoundary>
+              <MobileNav />
+              <Toaster />
+              </AuthProvider>
+            </QueryProvider>
+          </DevelopmentProvider>
         </ThemeProvider>
       </body>
     </html>

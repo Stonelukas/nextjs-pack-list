@@ -18,6 +18,7 @@ import { Upload, FileJson } from "lucide-react";
 import { importFromJSON } from "@/lib/export-utils";
 import { usePackListStore } from "@/store/usePackListStore";
 import { useRouter } from "next/navigation";
+import { Priority } from "@/types";
 
 interface ImportDialogProps {
   trigger?: React.ReactNode;
@@ -60,10 +61,10 @@ export function ImportDialog({ trigger }: ImportDialogProps) {
       const newListId = createList({
         name: importedList.name || "Imported List",
         description: importedList.description || "",
-        tripType: importedList.tripType || "general",
         tags: importedList.tags || [],
         isTemplate: false,
         categories: [],
+        userId: "imported-user",
       });
 
       // Add categories and items
@@ -72,7 +73,7 @@ export function ImportDialog({ trigger }: ImportDialogProps) {
           name: categoryData.name || "Imported Category",
           icon: categoryData.icon || "📦",
           order: 0,
-          isCollapsed: false,
+          collapsed: false,
         });
 
         // Add items for this category
@@ -81,11 +82,11 @@ export function ImportDialog({ trigger }: ImportDialogProps) {
             addItem(newListId, newCategoryId, {
               name: itemData.name || "Imported Item",
               quantity: itemData.quantity || 1,
-              priority: itemData.priority || "nice-to-have",
-              isPacked: itemData.isPacked || false,
+              priority: itemData.priority || Priority.LOW,
+              packed: itemData.packed || false,
               description: itemData.description || "",
               weight: itemData.weight,
-              weightUnit: itemData.weightUnit || "g",
+              categoryId: newCategoryId,
             });
           }
         }

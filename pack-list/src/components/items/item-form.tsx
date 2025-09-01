@@ -6,8 +6,6 @@ import { useState } from "react";
 // Types
 import { Item, Priority } from "@/types";
 
-// Constants
-import { DEFAULTS, PRIORITY_CONFIG } from "@/constants";
 
 // Icons
 import { Plus, Edit2 } from "lucide-react";

@@ -1,5 +1,6 @@
 import { List, Category, Item } from '@/types';
 import { lazyImportJsPDF, lazyImportHtmlToImage, lazyImportQRCode, lazyImportFileSaver } from './lazy-imports';
+import { AppError, ErrorType, safeAsync, logError, withRetry } from './error-utils';
 
 export const exportAsPDF = async (
   list: List,
@@ -31,7 +32,7 @@ export const exportAsPDF = async (
 
   // Statistics
   const totalItems = items.length;
-  const packedItems = items.filter(item => item.isPacked).length;
+  const packedItems = items.filter(item => item.packed).length;
   const completionPercentage = totalItems > 0 
     ? Math.round((packedItems / totalItems) * 100) 
     : 0;
@@ -67,7 +68,7 @@ export const exportAsPDF = async (
         yPosition = margin;
       }
 
-      const checkbox = item.isPacked ? '☑' : '☐';
+      const checkbox = item.packed ? '☑' : '☐';
       const quantity = item.quantity > 1 ? `${item.quantity}x ` : '';
       const priority = item.priority !== 'nice-to-have' ? ` (${item.priority})` : '';
       const text = `${checkbox} ${quantity}${item.name}${priority}`;
@@ -111,7 +112,7 @@ export const exportAsText = async (
 
   // Statistics
   const totalItems = items.length;
-  const packedItems = items.filter(item => item.isPacked).length;
+  const packedItems = items.filter(item => item.packed).length;
   const completionPercentage = totalItems > 0 
     ? Math.round((packedItems / totalItems) * 100) 
     : 0;
@@ -127,7 +128,7 @@ export const exportAsText = async (
     content += `## ${category.name}\n`;
     
     categoryItems.forEach(item => {
-      const status = item.isPacked ? '[x]' : '[ ]';
+      const status = item.packed ? '[x]' : '[ ]';
       const quantity = item.quantity > 1 ? `${item.quantity}x ` : '';
       const priority = item.priority !== 'nice-to-have' ? ` (${item.priority})` : '';
       content += `${status} ${quantity}${item.name}${priority}\n`;
@@ -162,7 +163,7 @@ export const exportAsCSV = async (
         item.name,
         item.quantity.toString(),
         item.priority,
-        item.isPacked ? 'Yes' : 'No',
+        item.packed ? 'Yes' : 'No',
         item.description || ''
       ]);
     });
@@ -204,7 +205,7 @@ export const exportAsJSON = async (
           name: item.name,
           quantity: item.quantity,
           priority: item.priority,
-          isPacked: item.isPacked,
+          packed: item.packed,
           description: item.description,
           weight: item.weight,
           weightUnit: item.weightUnit
@@ -212,9 +213,9 @@ export const exportAsJSON = async (
     })),
     statistics: {
       totalItems: items.length,
-      packedItems: items.filter(item => item.isPacked).length,
+      packedItems: items.filter(item => item.packed).length,
       completionPercentage: items.length > 0 
-        ? Math.round((items.filter(item => item.isPacked).length / items.length) * 100) 
+        ? Math.round((items.filter(item => item.packed).length / items.length) * 100) 
         : 0,
       exportedAt: new Date().toISOString()
     }
@@ -235,9 +236,9 @@ export const generateShareableLink = async (listId: string): Promise<string> => 
 };
 
 export const generateQRCode = async (text: string): Promise<string> => {
-  try {
+  const result = await safeAsync(async () => {
     const QRCode = await lazyImportQRCode();
-    const qrCodeDataUrl = await QRCode.toDataURL(text, {
+    return await QRCode.toDataURL(text, {
       width: 256,
       margin: 2,
       color: {
@@ -245,15 +246,23 @@ export const generateQRCode = async (text: string): Promise<string> => {
         light: '#FFFFFF'
       }
     });
-    return qrCodeDataUrl;
-  } catch (error) {
-    console.error('Error generating QR code:', error);
+  }, ErrorType.UNKNOWN);
+
+  if (!result.success) {
+    const error = new AppError(
+      'Failed to generate QR code',
+      ErrorType.UNKNOWN,
+      { text, originalError: result.error.message }
+    );
+    logError(error);
     throw error;
   }
+
+  return result.data;
 };
 
 export const copyToClipboard = async (text: string): Promise<boolean> => {
-  try {
+  const result = await safeAsync(async () => {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
       return true;
@@ -271,30 +280,47 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
       textArea.remove();
       return success;
     }
-  } catch (error) {
-    console.error('Error copying to clipboard:', error);
+  }, ErrorType.UNKNOWN);
+
+  if (!result.success) {
+    logError(new AppError(
+      'Failed to copy to clipboard',
+      ErrorType.UNKNOWN,
+      { textLength: text.length, originalError: result.error.message }
+    ));
     return false;
   }
+
+  return result.data;
 };
 
 export const importFromJSON = (jsonString: string): {
   list: Partial<List>;
   categories: Array<Partial<Category> & { items: Array<Partial<Item>> }>;
 } => {
-  try {
+  const result = safeSync(() => {
     const data = JSON.parse(jsonString);
     
     // Validate the structure
     if (!data.list || !data.categories) {
-      throw new Error('Invalid JSON structure');
+      throw new AppError('Invalid JSON structure', ErrorType.VALIDATION);
     }
 
     return {
       list: data.list,
       categories: data.categories
     };
-  } catch (error) {
-    console.error('Error parsing JSON:', error);
-    throw new Error('Failed to import JSON file');
+  }, ErrorType.VALIDATION);
+
+  if (!result.success) {
+    const error = new AppError(
+      'Failed to import JSON file',
+      ErrorType.VALIDATION,
+      { originalError: result.error.message }
+    );
+    logError(error);
+    throw error;
   }
+
+  return result.data;
 };

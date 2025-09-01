@@ -116,7 +116,7 @@ export function CategorySection({
   };
 
   const handleAddItem = (itemData: Omit<Item, "id" | "categoryId" | "createdAt" | "updatedAt">) => {
-    addItem(listId, category.id, itemData);
+    addItem(listId, category.id, { ...itemData, categoryId: category.id });
     toast.success("Item added successfully");
   };
 

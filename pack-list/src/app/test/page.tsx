@@ -9,6 +9,14 @@ export default function TestPage() {
   const router = useRouter();
   const { createList, addCategory, addItem } = usePackListStore();
 
+  // Redirect to home in production
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      router.push('/');
+      return;
+    }
+  }, [router]);
+
   useEffect(() => {
     // Create a test list with categories and items
     const listId = createList({
@@ -17,6 +25,7 @@ export default function TestPage() {
       isTemplate: false,
       categories: [],
       tags: ["camping", "outdoor", "weekend"],
+      userId: "test-user",
     });
 
     // Add Clothing category

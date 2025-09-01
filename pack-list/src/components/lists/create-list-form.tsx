@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePackListStore } from "@/store/usePackListStore";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
   const [isCreating, setIsCreating] = useState(false);
 
   const { createList, templates, applyTemplate } = usePackListStore();
+  const { user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +53,7 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
           categories: [],
           tags: [],
           isTemplate: false,
-          userId: "user-1", // TODO: Get from auth context
+          userId: user?.id || "anonymous"
         });
         toast.success("List created successfully!");
       }
