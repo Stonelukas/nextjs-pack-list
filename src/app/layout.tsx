@@ -12,6 +12,7 @@ import { DevelopmentProvider } from "@/providers/development-provider";
 import { WebVitalsReporter } from "./web-vitals";
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
+import { VercelDebug } from '@/components/debug/vercel-debug';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -88,8 +89,9 @@ export default function RootLayout({
               <AuthProvider>
                 <SkipNav />
                 <WebVitalsReporter />
-                <SpeedInsights />
-                <Analytics />
+                <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
+                <Analytics debug={process.env.NODE_ENV === 'development'} />
+                <VercelDebug />
               <ErrorBoundary>
                 <main id="main-content" className="pb-16 md:pb-0">
                   {children}
