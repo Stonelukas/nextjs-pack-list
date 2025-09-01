@@ -64,8 +64,22 @@ interface PackListState {
   } | null;
 }
 
+// Utility functions for better readability
 const generateId = () => crypto.randomUUID();
 const now = () => new Date();
+
+// Helper to find and update entity with error handling
+const findEntityById = <T extends { id: string }>(
+  entities: T[], 
+  id: string, 
+  entityName: string
+): T | null => {
+  const entity = entities.find(e => e.id === id);
+  if (!entity) {
+    console.warn(`${entityName} with ID ${id} not found`);
+  }
+  return entity || null;
+};
 
 export const usePackListStore = create<PackListState>()(
   persist(
@@ -103,7 +117,7 @@ export const usePackListStore = create<PackListState>()(
       },
       
       updateList: (id, updates) => set(state => {
-        const list = state.lists.find(l => l.id === id);
+        const list = findEntityById(state.lists, id, 'List');
         if (list) {
           Object.assign(list, updates, { updatedAt: now() });
         }
@@ -117,18 +131,38 @@ export const usePackListStore = create<PackListState>()(
       }),
       
       duplicateList: (id) => {
-        const originalList = get().lists.find(l => l.id === id);
+        const originalList = findEntityById(get().lists, id, 'List');
         if (!originalList) return '';
         
         const newId = generateId();
+        const copyName = `${originalList.name} (Copy)`;
+        
         set(state => {
-          state.lists.push({
+          const duplicatedList: List = {
             ...originalList,
             id: newId,
-            name: `${originalList.name} (Copy)`,
+            name: copyName,
+            categories: originalList.categories.map(cat => ({
+              ...cat,
+              id: generateId(),
+              items: cat.items.map(item => ({
+                ...item,
+                id: generateId(),
+                categoryId: '', // Will be updated with new category ID
+              }))
+            })),
             createdAt: now(),
             updatedAt: now(),
+          };
+          
+          // Fix category IDs in items
+          duplicatedList.categories.forEach(category => {
+            category.items.forEach(item => {
+              item.categoryId = category.id;
+            });
           });
+          
+          state.lists.push(duplicatedList);
         });
         return newId;
       },
@@ -139,27 +173,28 @@ export const usePackListStore = create<PackListState>()(
       
       // Category Actions
       addCategory: (listId, categoryData) => {
-        const id = generateId();
+        const categoryId = generateId();
         set(state => {
-          const list = state.lists.find(l => l.id === listId);
+          const list = findEntityById(state.lists, listId, 'List');
           if (list) {
-            list.categories.push({
+            const newCategory: Category = {
               ...categoryData,
-              id,
+              id: categoryId,
               items: [],
               createdAt: now(),
               updatedAt: now(),
-            } as Category);
+            };
+            list.categories.push(newCategory);
             list.updatedAt = now();
           }
         });
-        return id;
+        return categoryId;
       },
       
       updateCategory: (listId, categoryId, updates) => set(state => {
-        const list = state.lists.find(l => l.id === listId);
+        const list = findEntityById(state.lists, listId, 'List');
         if (list) {
-          const category = list.categories.find(c => c.id === categoryId);
+          const category = findEntityById(list.categories, categoryId, 'Category');
           if (category) {
             Object.assign(category, updates, { updatedAt: now() });
             list.updatedAt = now();
@@ -168,7 +203,7 @@ export const usePackListStore = create<PackListState>()(
       }),
       
       deleteCategory: (listId, categoryId) => set(state => {
-        const list = state.lists.find(l => l.id === listId);
+        const list = findEntityById(state.lists, listId, 'List');
         if (list) {
           list.categories = list.categories.filter(c => c.id !== categoryId);
           list.updatedAt = now();

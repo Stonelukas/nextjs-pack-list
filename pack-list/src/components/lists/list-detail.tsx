@@ -1,22 +1,11 @@
 "use client"
 
+// React imports
 import { useState, useMemo, useCallback } from "react";
-import { usePackListStore } from "@/store/usePackListStore";
-import { List, Category, Priority } from "@/types";
-import { debounce, measurePerformance } from "@/lib/performance";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { SortableCategory } from "../dnd/sortable-category";
-import { ListProgress } from "../progress/list-progress";
-import { SaveAsTemplate } from "../templates/save-as-template";
-import { LazyExportDialog } from "../lazy/lazy-export-dialog";
-import { LazyImportDialog } from "../lazy/lazy-import-dialog";
+
+// Third-party imports
+import { format } from "date-fns";
+import { toast } from "sonner";
 import {
   DndContext,
   closestCenter,
@@ -41,8 +30,32 @@ import {
   Star,
   Calendar
 } from "lucide-react";
-import { format } from "date-fns";
-import { toast } from "sonner";
+
+// Local imports - Types
+import { List, Category, Priority } from "@/types";
+
+// Local imports - Store
+import { usePackListStore } from "@/store/usePackListStore";
+
+// Local imports - Utils
+import { debounce, measurePerformance } from "@/lib/performance";
+
+// Local imports - UI Components
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
+// Local imports - Feature Components
+import { SortableCategory } from "../dnd/sortable-category";
+import { ListProgress } from "../progress/list-progress";
+import { SaveAsTemplate } from "../templates/save-as-template";
+import { LazyExportDialog } from "../lazy/lazy-export-dialog";
+import { LazyImportDialog } from "../lazy/lazy-import-dialog";
 import { FloatingActionButton, SpeedDialAction } from "@/components/mobile/floating-action-button";
 import { PullToRefresh } from "@/components/mobile/pull-to-refresh";
 

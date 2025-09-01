@@ -1,6 +1,15 @@
-// Performance monitoring utilities
+/**
+ * Performance monitoring and optimization utilities
+ * Provides tools for measuring, debouncing, throttling, and memoization
+ */
 
-export const measurePerformance = (name: string, fn: () => void) => {
+/**
+ * Measures the performance of a function execution using Performance API
+ * @param name - Name for the performance measurement
+ * @param fn - Function to measure
+ * @returns The result of the function execution
+ */
+export const measurePerformance = <T>(name: string, fn: () => T): T => {
   if (typeof window === 'undefined') return fn();
   
   const startMark = `${name}-start`;
@@ -26,6 +35,12 @@ export const measurePerformance = (name: string, fn: () => void) => {
   return result;
 };
 
+/**
+ * Debounces a function to prevent excessive calls
+ * @param fn - Function to debounce
+ * @param delay - Delay in milliseconds
+ * @returns Debounced function
+ */
 export const debounce = <T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
