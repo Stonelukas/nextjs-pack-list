@@ -19,6 +19,15 @@
 				"AZURE_OPENAI_API_KEY": "YOUR_AZURE_KEY_HERE",
 				"OLLAMA_API_KEY": "YOUR_OLLAMA_API_KEY_HERE"
 			}
+		},
+		"convex": {
+		  "type": "stdio",
+		  "command": "bunx",
+		  "args": [
+		    "convex",
+		    "mcp",
+		    "start"
+		  ]
 		}
 	}
 }

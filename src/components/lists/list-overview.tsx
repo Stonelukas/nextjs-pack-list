@@ -82,7 +82,7 @@ export function ListOverview() {
 
       {/* Quick Start Templates - Show when no lists or at the top */}
       {(lists.filter(l => !l.isTemplate).length === 0 || showTemplates) && (
-        <QuickStartTemplates 
+        <QuickStartTemplates
           className="mb-6"
           maxTemplates={lists.filter(l => !l.isTemplate).length === 0 ? 6 : 3}
         />

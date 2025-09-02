@@ -1,0 +1,1408 @@
+{
+  "timestamp": "2025-09-01T23:47:30.568Z",
+  "version": "1.0",
+  "data": {
+    "users": [
+      {
+        "id": "cmf1rmyz10000vrlskelmt6jm",
+        "name": "Admin User",
+        "email": "admin@packlistapp.com",
+        "emailVerified": "2025-09-01T23:43:52.682Z",
+        "password": "$2b$12$DtbAaPLvOiZtXwBKnSTCHOesUdflmNnVRelYPhwpg8IpdDRexVvuO",
+        "image": null,
+        "role": "ADMIN",
+        "isActive": true,
+        "createdAt": "2025-09-01T23:43:52.716Z",
+        "updatedAt": "2025-09-01T23:43:52.716Z",
+        "lists": [
+          {
+            "id": "cmf1rmz9z000kvrls9ngck8z0",
+            "name": "Business Trip Template",
+            "description": "Template for business travel",
+            "isTemplate": true,
+            "tags": [
+              "business",
+              "travel",
+              "template"
+            ],
+            "userId": "cmf1rmyz10000vrlskelmt6jm",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z",
+            "categories": [
+              {
+                "id": "cmf1rmz9z000lvrlsm0uskb4c",
+                "name": "Documents",
+                "order": 0,
+                "collapsed": false,
+                "listId": "cmf1rmz9z000kvrls9ngck8z0",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z",
+                "items": [
+                  {
+                    "id": "cmf1rmz9z000mvrlsktjvb1io",
+                    "name": "Passport/ID",
+                    "description": "Valid identification",
+                    "quantity": 1,
+                    "priority": "ESSENTIAL",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmz9z000nvrls59czjucp",
+                    "name": "Boarding passes",
+                    "description": "Flight tickets",
+                    "quantity": 1,
+                    "priority": "ESSENTIAL",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmza0000ovrlsm65sdg2e",
+                    "name": "Business cards",
+                    "description": "Professional business cards",
+                    "quantity": 20,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmza0000pvrlsokj5srsn",
+                    "name": "Meeting materials",
+                    "description": "Presentation materials and documents",
+                    "quantity": 1,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  }
+                ]
+              },
+              {
+                "id": "cmf1rmza0000qvrlsek646nf6",
+                "name": "Clothing",
+                "order": 1,
+                "collapsed": false,
+                "listId": "cmf1rmz9z000kvrls9ngck8z0",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z",
+                "items": [
+                  {
+                    "id": "cmf1rmza0000rvrlsgngb8z0l",
+                    "name": "Business suits",
+                    "description": "Professional attire",
+                    "quantity": 2,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmza0000svrlsqgnusjwt",
+                    "name": "Dress shirts",
+                    "description": "Clean, pressed dress shirts",
+                    "quantity": 3,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmza0000tvrlsrjwpknfn",
+                    "name": "Ties",
+                    "description": "Professional ties",
+                    "quantity": 2,
+                    "priority": "MEDIUM",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmza0000uvrlsh6jkados",
+                    "name": "Dress shoes",
+                    "description": "Professional footwear",
+                    "quantity": 1,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  }
+                ]
+              },
+              {
+                "id": "cmf1rmza0000vvrls523eo9k3",
+                "name": "Electronics",
+                "order": 2,
+                "collapsed": false,
+                "listId": "cmf1rmz9z000kvrls9ngck8z0",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z",
+                "items": [
+                  {
+                    "id": "cmf1rmza0000wvrlsaejft11r",
+                    "name": "Laptop",
+                    "description": "Work laptop with charger",
+                    "quantity": 1,
+                    "priority": "ESSENTIAL",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmza0000vvrls523eo9k3",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmza0000xvrlskp9g89bx",
+                    "name": "Phone charger",
+                    "description": "Mobile phone charger",
+                    "quantity": 1,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmza0000vvrls523eo9k3",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  },
+                  {
+                    "id": "cmf1rmza0000yvrlsuqumyjh4",
+                    "name": "Power bank",
+                    "description": "Portable battery pack",
+                    "quantity": 1,
+                    "priority": "MEDIUM",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmza0000vvrls523eo9k3",
+                    "createdAt": "2025-09-01T23:43:53.111Z",
+                    "updatedAt": "2025-09-01T23:43:53.111Z"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cmf1rmz5v0001vrlsij9ntpqr",
+        "name": "Demo User",
+        "email": "demo@packlistapp.com",
+        "emailVerified": "2025-09-01T23:43:52.959Z",
+        "password": "$2b$12$k6RhmkDdU/e5yDl5paUyV.JJtBY08AeaUnUKJndnWDGbWURRXzXtG",
+        "image": null,
+        "role": "USER",
+        "isActive": true,
+        "createdAt": "2025-09-01T23:43:52.962Z",
+        "updatedAt": "2025-09-01T23:43:52.962Z",
+        "lists": [
+          {
+            "id": "cmf1rmz630003vrlsld5cxroi",
+            "name": "Weekend Camping Trip",
+            "description": "A 2-day camping trip to the mountains",
+            "isTemplate": false,
+            "tags": [
+              "camping",
+              "weekend",
+              "outdoor"
+            ],
+            "userId": "cmf1rmz5v0001vrlsij9ntpqr",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z",
+            "categories": [
+              {
+                "id": "cmf1rmz630004vrlstad2xau0",
+                "name": "Clothing",
+                "order": 0,
+                "collapsed": false,
+                "listId": "cmf1rmz630003vrlsld5cxroi",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z",
+                "items": [
+                  {
+                    "id": "cmf1rmz630005vrls6lctgnmf",
+                    "name": "Hiking boots",
+                    "description": "Waterproof hiking boots",
+                    "quantity": 1,
+                    "priority": "ESSENTIAL",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz630004vrlstad2xau0",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz630006vrls33kd0dee",
+                    "name": "Rain jacket",
+                    "description": "Lightweight rain jacket",
+                    "quantity": 1,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz630004vrlstad2xau0",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz630007vrlsyzmw8v5r",
+                    "name": "Warm socks",
+                    "description": "Wool hiking socks",
+                    "quantity": 3,
+                    "priority": "HIGH",
+                    "packed": true,
+                    "weight": null,
+                    "categoryId": "cmf1rmz630004vrlstad2xau0",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz630008vrlsr1gws326",
+                    "name": "Base layers",
+                    "description": "Moisture-wicking base layers",
+                    "quantity": 2,
+                    "priority": "MEDIUM",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz630004vrlstad2xau0",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  }
+                ]
+              },
+              {
+                "id": "cmf1rmz630009vrlseh4xxqdl",
+                "name": "Gear",
+                "order": 1,
+                "collapsed": false,
+                "listId": "cmf1rmz630003vrlsld5cxroi",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z",
+                "items": [
+                  {
+                    "id": "cmf1rmz63000avrlsyjg3vf7g",
+                    "name": "Tent",
+                    "description": "2-person backpacking tent",
+                    "quantity": 1,
+                    "priority": "ESSENTIAL",
+                    "packed": false,
+                    "weight": 1200,
+                    "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz63000bvrlsg2av3j8n",
+                    "name": "Sleeping bag",
+                    "description": "Down sleeping bag rated to 20°F",
+                    "quantity": 1,
+                    "priority": "ESSENTIAL",
+                    "packed": true,
+                    "weight": 800,
+                    "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz63000cvrlsuao0wtuv",
+                    "name": "Headlamp",
+                    "description": "LED headlamp with extra batteries",
+                    "quantity": 1,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": 100,
+                    "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz63000dvrls39kausep",
+                    "name": "First aid kit",
+                    "description": "Basic first aid supplies",
+                    "quantity": 1,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": 200,
+                    "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  }
+                ]
+              },
+              {
+                "id": "cmf1rmz63000evrls3217zmjd",
+                "name": "Food & Water",
+                "order": 2,
+                "collapsed": false,
+                "listId": "cmf1rmz630003vrlsld5cxroi",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z",
+                "items": [
+                  {
+                    "id": "cmf1rmz63000fvrls3yb1j8zl",
+                    "name": "Water bottles",
+                    "description": "1L water bottles",
+                    "quantity": 2,
+                    "priority": "ESSENTIAL",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz63000evrls3217zmjd",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz63000gvrlsa0qph4d5",
+                    "name": "Water filter",
+                    "description": "Portable water filter",
+                    "quantity": 1,
+                    "priority": "HIGH",
+                    "packed": false,
+                    "weight": 300,
+                    "categoryId": "cmf1rmz63000evrls3217zmjd",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz63000hvrlsr2tqn9l5",
+                    "name": "Trail mix",
+                    "description": "High-energy trail mix",
+                    "quantity": 3,
+                    "priority": "MEDIUM",
+                    "packed": true,
+                    "weight": null,
+                    "categoryId": "cmf1rmz63000evrls3217zmjd",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  },
+                  {
+                    "id": "cmf1rmz63000ivrlsm127o2wg",
+                    "name": "Freeze-dried meals",
+                    "description": "Lightweight camping meals",
+                    "quantity": 4,
+                    "priority": "MEDIUM",
+                    "packed": false,
+                    "weight": null,
+                    "categoryId": "cmf1rmz63000evrls3217zmjd",
+                    "createdAt": "2025-09-01T23:43:52.971Z",
+                    "updatedAt": "2025-09-01T23:43:52.971Z"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "lists": [
+      {
+        "id": "cmf1rmz630003vrlsld5cxroi",
+        "name": "Weekend Camping Trip",
+        "description": "A 2-day camping trip to the mountains",
+        "isTemplate": false,
+        "tags": [
+          "camping",
+          "weekend",
+          "outdoor"
+        ],
+        "userId": "cmf1rmz5v0001vrlsij9ntpqr",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z",
+        "categories": [
+          {
+            "id": "cmf1rmz630004vrlstad2xau0",
+            "name": "Clothing",
+            "order": 0,
+            "collapsed": false,
+            "listId": "cmf1rmz630003vrlsld5cxroi",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z",
+            "items": [
+              {
+                "id": "cmf1rmz630005vrls6lctgnmf",
+                "name": "Hiking boots",
+                "description": "Waterproof hiking boots",
+                "quantity": 1,
+                "priority": "ESSENTIAL",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz630004vrlstad2xau0",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz630006vrls33kd0dee",
+                "name": "Rain jacket",
+                "description": "Lightweight rain jacket",
+                "quantity": 1,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz630004vrlstad2xau0",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz630007vrlsyzmw8v5r",
+                "name": "Warm socks",
+                "description": "Wool hiking socks",
+                "quantity": 3,
+                "priority": "HIGH",
+                "packed": true,
+                "weight": null,
+                "categoryId": "cmf1rmz630004vrlstad2xau0",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz630008vrlsr1gws326",
+                "name": "Base layers",
+                "description": "Moisture-wicking base layers",
+                "quantity": 2,
+                "priority": "MEDIUM",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz630004vrlstad2xau0",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              }
+            ]
+          },
+          {
+            "id": "cmf1rmz630009vrlseh4xxqdl",
+            "name": "Gear",
+            "order": 1,
+            "collapsed": false,
+            "listId": "cmf1rmz630003vrlsld5cxroi",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z",
+            "items": [
+              {
+                "id": "cmf1rmz63000avrlsyjg3vf7g",
+                "name": "Tent",
+                "description": "2-person backpacking tent",
+                "quantity": 1,
+                "priority": "ESSENTIAL",
+                "packed": false,
+                "weight": 1200,
+                "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz63000bvrlsg2av3j8n",
+                "name": "Sleeping bag",
+                "description": "Down sleeping bag rated to 20°F",
+                "quantity": 1,
+                "priority": "ESSENTIAL",
+                "packed": true,
+                "weight": 800,
+                "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz63000cvrlsuao0wtuv",
+                "name": "Headlamp",
+                "description": "LED headlamp with extra batteries",
+                "quantity": 1,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": 100,
+                "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz63000dvrls39kausep",
+                "name": "First aid kit",
+                "description": "Basic first aid supplies",
+                "quantity": 1,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": 200,
+                "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              }
+            ]
+          },
+          {
+            "id": "cmf1rmz63000evrls3217zmjd",
+            "name": "Food & Water",
+            "order": 2,
+            "collapsed": false,
+            "listId": "cmf1rmz630003vrlsld5cxroi",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z",
+            "items": [
+              {
+                "id": "cmf1rmz63000fvrls3yb1j8zl",
+                "name": "Water bottles",
+                "description": "1L water bottles",
+                "quantity": 2,
+                "priority": "ESSENTIAL",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz63000evrls3217zmjd",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz63000gvrlsa0qph4d5",
+                "name": "Water filter",
+                "description": "Portable water filter",
+                "quantity": 1,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": 300,
+                "categoryId": "cmf1rmz63000evrls3217zmjd",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz63000hvrlsr2tqn9l5",
+                "name": "Trail mix",
+                "description": "High-energy trail mix",
+                "quantity": 3,
+                "priority": "MEDIUM",
+                "packed": true,
+                "weight": null,
+                "categoryId": "cmf1rmz63000evrls3217zmjd",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              },
+              {
+                "id": "cmf1rmz63000ivrlsm127o2wg",
+                "name": "Freeze-dried meals",
+                "description": "Lightweight camping meals",
+                "quantity": 4,
+                "priority": "MEDIUM",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz63000evrls3217zmjd",
+                "createdAt": "2025-09-01T23:43:52.971Z",
+                "updatedAt": "2025-09-01T23:43:52.971Z"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cmf1rmz9z000kvrls9ngck8z0",
+        "name": "Business Trip Template",
+        "description": "Template for business travel",
+        "isTemplate": true,
+        "tags": [
+          "business",
+          "travel",
+          "template"
+        ],
+        "userId": "cmf1rmyz10000vrlskelmt6jm",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z",
+        "categories": [
+          {
+            "id": "cmf1rmz9z000lvrlsm0uskb4c",
+            "name": "Documents",
+            "order": 0,
+            "collapsed": false,
+            "listId": "cmf1rmz9z000kvrls9ngck8z0",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z",
+            "items": [
+              {
+                "id": "cmf1rmz9z000mvrlsktjvb1io",
+                "name": "Passport/ID",
+                "description": "Valid identification",
+                "quantity": 1,
+                "priority": "ESSENTIAL",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmz9z000nvrls59czjucp",
+                "name": "Boarding passes",
+                "description": "Flight tickets",
+                "quantity": 1,
+                "priority": "ESSENTIAL",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmza0000ovrlsm65sdg2e",
+                "name": "Business cards",
+                "description": "Professional business cards",
+                "quantity": 20,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmza0000pvrlsokj5srsn",
+                "name": "Meeting materials",
+                "description": "Presentation materials and documents",
+                "quantity": 1,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              }
+            ]
+          },
+          {
+            "id": "cmf1rmza0000qvrlsek646nf6",
+            "name": "Clothing",
+            "order": 1,
+            "collapsed": false,
+            "listId": "cmf1rmz9z000kvrls9ngck8z0",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z",
+            "items": [
+              {
+                "id": "cmf1rmza0000rvrlsgngb8z0l",
+                "name": "Business suits",
+                "description": "Professional attire",
+                "quantity": 2,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmza0000svrlsqgnusjwt",
+                "name": "Dress shirts",
+                "description": "Clean, pressed dress shirts",
+                "quantity": 3,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmza0000tvrlsrjwpknfn",
+                "name": "Ties",
+                "description": "Professional ties",
+                "quantity": 2,
+                "priority": "MEDIUM",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmza0000uvrlsh6jkados",
+                "name": "Dress shoes",
+                "description": "Professional footwear",
+                "quantity": 1,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmza0000qvrlsek646nf6",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              }
+            ]
+          },
+          {
+            "id": "cmf1rmza0000vvrls523eo9k3",
+            "name": "Electronics",
+            "order": 2,
+            "collapsed": false,
+            "listId": "cmf1rmz9z000kvrls9ngck8z0",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z",
+            "items": [
+              {
+                "id": "cmf1rmza0000wvrlsaejft11r",
+                "name": "Laptop",
+                "description": "Work laptop with charger",
+                "quantity": 1,
+                "priority": "ESSENTIAL",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmza0000vvrls523eo9k3",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmza0000xvrlskp9g89bx",
+                "name": "Phone charger",
+                "description": "Mobile phone charger",
+                "quantity": 1,
+                "priority": "HIGH",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmza0000vvrls523eo9k3",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              },
+              {
+                "id": "cmf1rmza0000yvrlsuqumyjh4",
+                "name": "Power bank",
+                "description": "Portable battery pack",
+                "quantity": 1,
+                "priority": "MEDIUM",
+                "packed": false,
+                "weight": null,
+                "categoryId": "cmf1rmza0000vvrls523eo9k3",
+                "createdAt": "2025-09-01T23:43:53.111Z",
+                "updatedAt": "2025-09-01T23:43:53.111Z"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "categories": [
+      {
+        "id": "cmf1rmz630004vrlstad2xau0",
+        "name": "Clothing",
+        "order": 0,
+        "collapsed": false,
+        "listId": "cmf1rmz630003vrlsld5cxroi",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z",
+        "items": [
+          {
+            "id": "cmf1rmz630005vrls6lctgnmf",
+            "name": "Hiking boots",
+            "description": "Waterproof hiking boots",
+            "quantity": 1,
+            "priority": "ESSENTIAL",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz630004vrlstad2xau0",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz630006vrls33kd0dee",
+            "name": "Rain jacket",
+            "description": "Lightweight rain jacket",
+            "quantity": 1,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz630004vrlstad2xau0",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz630007vrlsyzmw8v5r",
+            "name": "Warm socks",
+            "description": "Wool hiking socks",
+            "quantity": 3,
+            "priority": "HIGH",
+            "packed": true,
+            "weight": null,
+            "categoryId": "cmf1rmz630004vrlstad2xau0",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz630008vrlsr1gws326",
+            "name": "Base layers",
+            "description": "Moisture-wicking base layers",
+            "quantity": 2,
+            "priority": "MEDIUM",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz630004vrlstad2xau0",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          }
+        ]
+      },
+      {
+        "id": "cmf1rmz630009vrlseh4xxqdl",
+        "name": "Gear",
+        "order": 1,
+        "collapsed": false,
+        "listId": "cmf1rmz630003vrlsld5cxroi",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z",
+        "items": [
+          {
+            "id": "cmf1rmz63000avrlsyjg3vf7g",
+            "name": "Tent",
+            "description": "2-person backpacking tent",
+            "quantity": 1,
+            "priority": "ESSENTIAL",
+            "packed": false,
+            "weight": 1200,
+            "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz63000bvrlsg2av3j8n",
+            "name": "Sleeping bag",
+            "description": "Down sleeping bag rated to 20°F",
+            "quantity": 1,
+            "priority": "ESSENTIAL",
+            "packed": true,
+            "weight": 800,
+            "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz63000cvrlsuao0wtuv",
+            "name": "Headlamp",
+            "description": "LED headlamp with extra batteries",
+            "quantity": 1,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": 100,
+            "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz63000dvrls39kausep",
+            "name": "First aid kit",
+            "description": "Basic first aid supplies",
+            "quantity": 1,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": 200,
+            "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          }
+        ]
+      },
+      {
+        "id": "cmf1rmz63000evrls3217zmjd",
+        "name": "Food & Water",
+        "order": 2,
+        "collapsed": false,
+        "listId": "cmf1rmz630003vrlsld5cxroi",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z",
+        "items": [
+          {
+            "id": "cmf1rmz63000fvrls3yb1j8zl",
+            "name": "Water bottles",
+            "description": "1L water bottles",
+            "quantity": 2,
+            "priority": "ESSENTIAL",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz63000evrls3217zmjd",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz63000gvrlsa0qph4d5",
+            "name": "Water filter",
+            "description": "Portable water filter",
+            "quantity": 1,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": 300,
+            "categoryId": "cmf1rmz63000evrls3217zmjd",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz63000hvrlsr2tqn9l5",
+            "name": "Trail mix",
+            "description": "High-energy trail mix",
+            "quantity": 3,
+            "priority": "MEDIUM",
+            "packed": true,
+            "weight": null,
+            "categoryId": "cmf1rmz63000evrls3217zmjd",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          },
+          {
+            "id": "cmf1rmz63000ivrlsm127o2wg",
+            "name": "Freeze-dried meals",
+            "description": "Lightweight camping meals",
+            "quantity": 4,
+            "priority": "MEDIUM",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz63000evrls3217zmjd",
+            "createdAt": "2025-09-01T23:43:52.971Z",
+            "updatedAt": "2025-09-01T23:43:52.971Z"
+          }
+        ]
+      },
+      {
+        "id": "cmf1rmz9z000lvrlsm0uskb4c",
+        "name": "Documents",
+        "order": 0,
+        "collapsed": false,
+        "listId": "cmf1rmz9z000kvrls9ngck8z0",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z",
+        "items": [
+          {
+            "id": "cmf1rmz9z000mvrlsktjvb1io",
+            "name": "Passport/ID",
+            "description": "Valid identification",
+            "quantity": 1,
+            "priority": "ESSENTIAL",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmz9z000nvrls59czjucp",
+            "name": "Boarding passes",
+            "description": "Flight tickets",
+            "quantity": 1,
+            "priority": "ESSENTIAL",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmza0000ovrlsm65sdg2e",
+            "name": "Business cards",
+            "description": "Professional business cards",
+            "quantity": 20,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmza0000pvrlsokj5srsn",
+            "name": "Meeting materials",
+            "description": "Presentation materials and documents",
+            "quantity": 1,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          }
+        ]
+      },
+      {
+        "id": "cmf1rmza0000qvrlsek646nf6",
+        "name": "Clothing",
+        "order": 1,
+        "collapsed": false,
+        "listId": "cmf1rmz9z000kvrls9ngck8z0",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z",
+        "items": [
+          {
+            "id": "cmf1rmza0000rvrlsgngb8z0l",
+            "name": "Business suits",
+            "description": "Professional attire",
+            "quantity": 2,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmza0000qvrlsek646nf6",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmza0000svrlsqgnusjwt",
+            "name": "Dress shirts",
+            "description": "Clean, pressed dress shirts",
+            "quantity": 3,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmza0000qvrlsek646nf6",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmza0000tvrlsrjwpknfn",
+            "name": "Ties",
+            "description": "Professional ties",
+            "quantity": 2,
+            "priority": "MEDIUM",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmza0000qvrlsek646nf6",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmza0000uvrlsh6jkados",
+            "name": "Dress shoes",
+            "description": "Professional footwear",
+            "quantity": 1,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmza0000qvrlsek646nf6",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          }
+        ]
+      },
+      {
+        "id": "cmf1rmza0000vvrls523eo9k3",
+        "name": "Electronics",
+        "order": 2,
+        "collapsed": false,
+        "listId": "cmf1rmz9z000kvrls9ngck8z0",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z",
+        "items": [
+          {
+            "id": "cmf1rmza0000wvrlsaejft11r",
+            "name": "Laptop",
+            "description": "Work laptop with charger",
+            "quantity": 1,
+            "priority": "ESSENTIAL",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmza0000vvrls523eo9k3",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmza0000xvrlskp9g89bx",
+            "name": "Phone charger",
+            "description": "Mobile phone charger",
+            "quantity": 1,
+            "priority": "HIGH",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmza0000vvrls523eo9k3",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          },
+          {
+            "id": "cmf1rmza0000yvrlsuqumyjh4",
+            "name": "Power bank",
+            "description": "Portable battery pack",
+            "quantity": 1,
+            "priority": "MEDIUM",
+            "packed": false,
+            "weight": null,
+            "categoryId": "cmf1rmza0000vvrls523eo9k3",
+            "createdAt": "2025-09-01T23:43:53.111Z",
+            "updatedAt": "2025-09-01T23:43:53.111Z"
+          }
+        ]
+      }
+    ],
+    "items": [
+      {
+        "id": "cmf1rmz630005vrls6lctgnmf",
+        "name": "Hiking boots",
+        "description": "Waterproof hiking boots",
+        "quantity": 1,
+        "priority": "ESSENTIAL",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz630004vrlstad2xau0",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz630006vrls33kd0dee",
+        "name": "Rain jacket",
+        "description": "Lightweight rain jacket",
+        "quantity": 1,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz630004vrlstad2xau0",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz630007vrlsyzmw8v5r",
+        "name": "Warm socks",
+        "description": "Wool hiking socks",
+        "quantity": 3,
+        "priority": "HIGH",
+        "packed": true,
+        "weight": null,
+        "categoryId": "cmf1rmz630004vrlstad2xau0",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz630008vrlsr1gws326",
+        "name": "Base layers",
+        "description": "Moisture-wicking base layers",
+        "quantity": 2,
+        "priority": "MEDIUM",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz630004vrlstad2xau0",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000avrlsyjg3vf7g",
+        "name": "Tent",
+        "description": "2-person backpacking tent",
+        "quantity": 1,
+        "priority": "ESSENTIAL",
+        "packed": false,
+        "weight": 1200,
+        "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000bvrlsg2av3j8n",
+        "name": "Sleeping bag",
+        "description": "Down sleeping bag rated to 20°F",
+        "quantity": 1,
+        "priority": "ESSENTIAL",
+        "packed": true,
+        "weight": 800,
+        "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000cvrlsuao0wtuv",
+        "name": "Headlamp",
+        "description": "LED headlamp with extra batteries",
+        "quantity": 1,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": 100,
+        "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000dvrls39kausep",
+        "name": "First aid kit",
+        "description": "Basic first aid supplies",
+        "quantity": 1,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": 200,
+        "categoryId": "cmf1rmz630009vrlseh4xxqdl",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000fvrls3yb1j8zl",
+        "name": "Water bottles",
+        "description": "1L water bottles",
+        "quantity": 2,
+        "priority": "ESSENTIAL",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz63000evrls3217zmjd",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000gvrlsa0qph4d5",
+        "name": "Water filter",
+        "description": "Portable water filter",
+        "quantity": 1,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": 300,
+        "categoryId": "cmf1rmz63000evrls3217zmjd",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000hvrlsr2tqn9l5",
+        "name": "Trail mix",
+        "description": "High-energy trail mix",
+        "quantity": 3,
+        "priority": "MEDIUM",
+        "packed": true,
+        "weight": null,
+        "categoryId": "cmf1rmz63000evrls3217zmjd",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz63000ivrlsm127o2wg",
+        "name": "Freeze-dried meals",
+        "description": "Lightweight camping meals",
+        "quantity": 4,
+        "priority": "MEDIUM",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz63000evrls3217zmjd",
+        "createdAt": "2025-09-01T23:43:52.971Z",
+        "updatedAt": "2025-09-01T23:43:52.971Z"
+      },
+      {
+        "id": "cmf1rmz9z000mvrlsktjvb1io",
+        "name": "Passport/ID",
+        "description": "Valid identification",
+        "quantity": 1,
+        "priority": "ESSENTIAL",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmz9z000nvrls59czjucp",
+        "name": "Boarding passes",
+        "description": "Flight tickets",
+        "quantity": 1,
+        "priority": "ESSENTIAL",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000ovrlsm65sdg2e",
+        "name": "Business cards",
+        "description": "Professional business cards",
+        "quantity": 20,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000pvrlsokj5srsn",
+        "name": "Meeting materials",
+        "description": "Presentation materials and documents",
+        "quantity": 1,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmz9z000lvrlsm0uskb4c",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000rvrlsgngb8z0l",
+        "name": "Business suits",
+        "description": "Professional attire",
+        "quantity": 2,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmza0000qvrlsek646nf6",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000svrlsqgnusjwt",
+        "name": "Dress shirts",
+        "description": "Clean, pressed dress shirts",
+        "quantity": 3,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmza0000qvrlsek646nf6",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000tvrlsrjwpknfn",
+        "name": "Ties",
+        "description": "Professional ties",
+        "quantity": 2,
+        "priority": "MEDIUM",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmza0000qvrlsek646nf6",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000uvrlsh6jkados",
+        "name": "Dress shoes",
+        "description": "Professional footwear",
+        "quantity": 1,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmza0000qvrlsek646nf6",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000wvrlsaejft11r",
+        "name": "Laptop",
+        "description": "Work laptop with charger",
+        "quantity": 1,
+        "priority": "ESSENTIAL",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmza0000vvrls523eo9k3",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000xvrlskp9g89bx",
+        "name": "Phone charger",
+        "description": "Mobile phone charger",
+        "quantity": 1,
+        "priority": "HIGH",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmza0000vvrls523eo9k3",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      },
+      {
+        "id": "cmf1rmza0000yvrlsuqumyjh4",
+        "name": "Power bank",
+        "description": "Portable battery pack",
+        "quantity": 1,
+        "priority": "MEDIUM",
+        "packed": false,
+        "weight": null,
+        "categoryId": "cmf1rmza0000vvrls523eo9k3",
+        "createdAt": "2025-09-01T23:43:53.111Z",
+        "updatedAt": "2025-09-01T23:43:53.111Z"
+      }
+    ]
+  }
+}

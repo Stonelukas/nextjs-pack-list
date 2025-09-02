@@ -20,6 +20,33 @@ const nextConfig: NextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
+  webpack: (config, { isServer }) => {
+    // Fix for WorkOS AuthKit Node.js modules in client-side code
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        "node:https": false,
+        "node:http": false,
+        "node:fs": false,
+        "node:path": false,
+        "node:crypto": false,
+        "node:stream": false,
+        "node:util": false,
+        "node:url": false,
+        "node:querystring": false,
+        "https": false,
+        "http": false,
+        "fs": false,
+        "path": false,
+        "crypto": false,
+        "stream": false,
+        "util": false,
+        "url": false,
+        "querystring": false,
+      };
+    }
+    return config;
+  },
 };
 
 // Bundle analyzer configuration

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { QueryProvider } from "@/providers/query-provider";
+import { ConvexProvider } from "@/providers/convex-provider";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { MobileNav } from "@/components/mobile/mobile-nav";
@@ -78,31 +79,33 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <DevelopmentProvider>
-            <QueryProvider>
+        <ConvexProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <DevelopmentProvider>
               <AuthProvider>
-                <SkipNav />
-                <WebVitalsReporter />
-                <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
-                <Analytics debug={process.env.NODE_ENV === 'development'} />
-                <VercelDebug />
-              <ErrorBoundary>
-                <main id="main-content" className="pb-16 md:pb-0">
-                  {children}
-                </main>
-              </ErrorBoundary>
-              <MobileNav />
-              <Toaster />
+                <QueryProvider>
+                  <SkipNav />
+                  <WebVitalsReporter />
+                  <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
+                  <Analytics debug={process.env.NODE_ENV === 'development'} />
+                  <VercelDebug />
+                  <ErrorBoundary>
+                    <main id="main-content" className="pb-16 md:pb-0">
+                      {children}
+                    </main>
+                  </ErrorBoundary>
+                  <MobileNav />
+                  <Toaster />
+                </QueryProvider>
               </AuthProvider>
-            </QueryProvider>
-          </DevelopmentProvider>
-        </ThemeProvider>
+            </DevelopmentProvider>
+          </ThemeProvider>
+        </ConvexProvider>
       </body>
     </html>
   );
