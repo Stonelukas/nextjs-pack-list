@@ -1200,5 +1200,27 @@
     "tool_input": {
       "command": "git add -A && git status"
     }
+  },
+  {
+    "session_id": "14834248-b225-40e3-8de0-bb37526610d8",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/14834248-b225-40e3-8de0-bb37526610d8.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "git commit -m \"fix: properly handle async template application in list creation\n\n- Add await to applyTemplate call in CreateListForm\n- Fix applyTemplate to return string ID instead of Promise\n- Add error handling for null listId after template application\n- Prevent navigation with invalid [object Promise] routes\n\n\ud83e\udd16 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\""
+    }
+  },
+  {
+    "session_id": "14834248-b225-40e3-8de0-bb37526610d8",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/14834248-b225-40e3-8de0-bb37526610d8.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "git add -A && git status"
+    }
   }
 ]
