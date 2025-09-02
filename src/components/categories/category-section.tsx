@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Category, Item } from "@/types";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -73,7 +73,7 @@ export function CategorySection({
     updateCategory,
     deleteCategory,
     toggleCategoryCollapse,
-  } = usePackListStore();
+  } = useConvexStore();
   
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(category.name);

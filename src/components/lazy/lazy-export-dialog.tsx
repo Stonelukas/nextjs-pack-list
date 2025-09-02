@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { useState } from "react";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 
 const ExportDialog = dynamic(
   () => import('@/components/export/export-dialog').then(mod => mod.ExportDialog),

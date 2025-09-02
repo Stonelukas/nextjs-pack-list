@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { Template } from "@/types";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { defaultTemplates } from "@/data/default-templates";
 import { debounce } from "@/lib/performance";
 import {
@@ -46,7 +46,7 @@ interface TemplateManagerProps {
 }
 
 export function TemplateManager({ template, onClose }: TemplateManagerProps) {
-  const { templates, updateTemplate, deleteTemplate } = usePackListStore();
+  const { templates, updateTemplate, deleteTemplate } = useConvexStore();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
@@ -128,7 +128,7 @@ export function TemplateManager({ template, onClose }: TemplateManagerProps) {
     };
     
     // Add to user templates
-    const store = usePackListStore.getState();
+    const store = useConvexStore.getState();
     store.templates.push(duplicatedTemplate);
     
     toast.success(`Template "${newName}" created successfully`);

@@ -18,7 +18,7 @@ export default defineSchema({
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_token", ["tokenIdentifier"])
-    .index("by_email", ["email"])
+    .index("by_email", ["email"]),
   
   lists: defineTable({
     userId: v.id("users"),

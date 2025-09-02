@@ -18,7 +18,7 @@ import { Package, Plus, Sparkles, Save } from 'lucide-react';
 
 export function TemplateSelector() {
   const router = useRouter();
-  const { addList, lists } = usePackListStore();
+  const { addList, lists } = useConvexStore();
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [listName, setListName] = useState('');
   const [listDescription, setListDescription] = useState('');

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { ListCard } from "./list-card";
 import { CreateListForm } from "./create-list-form";
 import { QuickStartTemplates } from "../templates/quick-start-templates";
@@ -18,7 +18,7 @@ type ViewMode = "grid" | "list";
 
 export function ListOverview() {
   const router = useRouter();
-  const { lists } = usePackListStore();
+  const { lists } = useConvexStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("date");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -41,8 +41,9 @@ export function ListOverview() {
         case "date":
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case "completion":
-          const statsA = usePackListStore.getState().getListStatistics(a.id);
-          const statsB = usePackListStore.getState().getListStatistics(b.id);
+          // TODO: Implement getListProgress for Convex
+          const statsA = { completionPercentage: 0 };
+          const statsB = { completionPercentage: 0 };
           return (statsB?.completionPercentage || 0) - (statsA?.completionPercentage || 0);
         default:
           return 0;
@@ -172,7 +173,8 @@ export function ListOverview() {
             <div>
               <div className="text-2xl font-bold">
                 {lists.filter(l => {
-                  const stats = usePackListStore.getState().getListStatistics(l.id);
+                  // TODO: Implement getListProgress(l.id);
+                  const stats = null;
                   return stats?.completionPercentage === 100;
                 }).length}
               </div>
@@ -181,7 +183,8 @@ export function ListOverview() {
             <div>
               <div className="text-2xl font-bold">
                 {lists.reduce((total, list) => {
-                  const stats = usePackListStore.getState().getListStatistics(list.id);
+                  // TODO: Implement getListProgress(list.id);
+                  const stats = null;
                   return total + (stats?.totalItems || 0);
                 }, 0)}
               </div>
@@ -191,7 +194,8 @@ export function ListOverview() {
               <div className="text-2xl font-bold">
                 {Math.round(
                   lists.reduce((total, list) => {
-                    const stats = usePackListStore.getState().getListStatistics(list.id);
+                    // TODO: Implement getListProgress(list.id);
+                    const stats = null;
                     return total + (stats?.completionPercentage || 0);
                   }, 0) / (lists.length || 1)
                 )}%

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { List } from "@/types";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -30,7 +30,7 @@ interface ListCardProps {
 
 export function ListCard({ list, onClick, onEdit }: ListCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const { deleteList, duplicateList, saveAsTemplate, getListStatistics } = usePackListStore();
+  const { deleteList, duplicateList, saveAsTemplate, getListStatistics } = useConvexStore();
   
   const stats = getListStatistics(list.id);
   const completionPercentage = stats?.completionPercentage || 0;

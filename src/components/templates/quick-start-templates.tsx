@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Template } from "@/types";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { useRouter } from "next/navigation";
 import { defaultTemplates } from "@/data/default-templates";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export function QuickStartTemplates({
   maxTemplates = 6 
 }: QuickStartTemplatesProps) {
   const router = useRouter();
-  const { applyTemplate } = usePackListStore();
+  const { applyTemplate } = useConvexStore();
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
 
   // Get featured templates

@@ -35,7 +35,7 @@ import {
 import { List, Category, Priority } from "@/types";
 
 // Local imports - Store
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 
 // Local imports - Utils
 import { debounce, measurePerformance } from "@/lib/performance";
@@ -64,7 +64,7 @@ interface ListDetailProps {
 }
 
 export function ListDetail({ listId }: ListDetailProps) {
-  const { lists, addCategory, reorderCategories, getListStatistics } = usePackListStore();
+  const { lists, addCategory, reorderCategories, getListStatistics } = useConvexStore();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   

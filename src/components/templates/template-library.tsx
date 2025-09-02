@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Template, TemplateCategory } from "@/types";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { TemplateCard } from "./template-card";
 import { TemplatePreviewer } from "./template-previewer";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ interface TemplateLibraryProps {
 
 export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibraryProps) {
   const router = useRouter();
-  const { getAllTemplates, applyTemplate } = usePackListStore();
+  const { getAllTemplates, applyTemplate } = useConvexStore();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");

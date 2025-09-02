@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Upload, FileJson } from "lucide-react";
 import { importFromJSON } from "@/lib/export-utils";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { useRouter } from "next/navigation";
 import { Priority } from "@/types";
 
@@ -29,7 +29,7 @@ export function ImportDialog({ trigger }: ImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { createList, addCategory, addItem } = usePackListStore();
+  const { createList, addCategory, addItem } = useConvexStore();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

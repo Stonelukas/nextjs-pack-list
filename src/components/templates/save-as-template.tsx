@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { List, TemplateCategory } from "@/types";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +42,7 @@ export function SaveAsTemplate({
   onSaved,
   className 
 }: SaveAsTemplateProps) {
-  const { saveAsTemplate } = usePackListStore();
+  const { saveAsTemplate } = useConvexStore();
   const [open, setOpen] = useState(false);
   const [templateName, setTemplateName] = useState(list.name + " Template");
   const [description, setDescription] = useState("");

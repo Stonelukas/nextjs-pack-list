@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react";
-import { usePackListStore } from "@/store/usePackListStore";
+import { useConvexStore } from "@/hooks/use-convex-store";
 import { useAuth } from "@/contexts/auth-context";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const { createList, templates, applyTemplate } = usePackListStore();
+  const { createList, templates, applyTemplate } = useConvexStore();
   const { user } = useAuth();
   const { trackListCreated, trackTemplateUsed } = useAnalytics();
 
