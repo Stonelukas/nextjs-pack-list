@@ -234,6 +234,7 @@ export function useConvexStore() {
     user: convexUser,
     isAuthenticated: !!user,
     isLoading: clerkId && !convexUser,
+    templates: [], // TODO: Implement templates query from Convex
 
     // List operations
     createList,
@@ -246,6 +247,16 @@ export function useConvexStore() {
     // Item operations
     addItem,
     toggleItemPacked,
+
+    // Template operations (TODO: Implement these)
+    applyTemplate: async (templateId: string, listName: string) => {
+      toast.info("Template functionality coming soon");
+      return null;
+    },
+    saveAsTemplate: async (listId: string, name: string, description: string) => {
+      toast.info("Template functionality coming soon");
+      return null;
+    },
 
     // Utility
     getListProgress,
