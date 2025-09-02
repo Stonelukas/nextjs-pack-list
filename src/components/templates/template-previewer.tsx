@@ -35,7 +35,7 @@ interface TemplatePreviewerProps {
   template: Template | null;
   isOpen: boolean;
   onClose: () => void;
-  onUse: (template: Template, listName: string) => void;
+  onUse: (template: Template, listName: string) => void | Promise<void>;
 }
 
 export function TemplatePreviewer({

@@ -38,8 +38,8 @@ export function QuickStartTemplates({
     .filter(t => t.isPublic)
     .slice(0, maxTemplates);
 
-  const handleUseTemplate = (template: Template, listName: string) => {
-    const listId = applyTemplate(template.id, listName);
+  const handleUseTemplate = async (template: Template, listName: string) => {
+    const listId = await applyTemplate(template.id, listName);
     if (listId) {
       toast.success(`Created "${listName}" from template`);
       router.push(`/lists/${listId}`);

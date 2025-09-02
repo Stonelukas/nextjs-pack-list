@@ -137,8 +137,8 @@ export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibrar
     return groups;
   }, [filteredTemplates]);
 
-  const handleUseTemplate = (template: Template, listName: string) => {
-    const listId = applyTemplate(template.id, listName);
+  const handleUseTemplate = async (template: Template, listName: string) => {
+    const listId = await applyTemplate(template.id, listName);
     if (listId) {
       toast.success(`Created "${listName}" from template`);
       if (onTemplateCreated) {
