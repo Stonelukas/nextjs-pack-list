@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "analyze": "ANALYZE=true next build",
-    "build": "convex deploy --cmd 'bun run build'",
+    "build": "next build",
     "build:local": "next build",
     "dev": "next dev",
     "lint": "eslint",
