@@ -886,11 +886,33 @@
             "testStrategy": "Test data integrity after migration. Verify all user accounts are correctly transferred. Test application functionality end-to-end after migration. Monitor performance metrics after deployment. Verify authentication flows work correctly with Clerk."
           }
         ]
+      },
+      {
+        "id": 18,
+        "title": "Implement Clerk authentication system",
+        "description": "Replace current Convex authentication with Clerk following the official App Router integration guide",
+        "details": "Follow clerk.md instructions strictly:\n1. Install @clerk/nextjs@latest\n2. Create middleware.ts with clerkMiddleware() from @clerk/nextjs/server\n3. Wrap app with ClerkProvider in app/layout.tsx\n4. Add Clerk UI components (SignInButton, SignUpButton, UserButton, SignedIn, SignedOut)\n5. Configure environment variables for Clerk\n6. Remove/adapt existing auth context to work with Clerk\n7. Ensure all imports are from correct packages (@clerk/nextjs or @clerk/nextjs/server)\n8. Test authentication flow end-to-end",
+        "testStrategy": "Manual testing of sign up, sign in, sign out flows. Verify UserButton displays correctly. Test protected routes work as expected. Ensure no console errors.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Integrate Convex for data persistence",
+        "description": "Replace local storage with Convex database and tie data to authenticated users",
+        "details": "Implementation steps:\n1. Update Convex schema to include userId references\n2. Create Convex mutations for CRUD operations on lists, categories, items\n3. Create Convex queries to fetch user-specific data\n4. Update Zustand store to use Convex instead of localStorage\n5. Integrate Clerk user ID with Convex data\n6. Update homepage to show auth prompts for signed-out users\n7. Display user's lists when authenticated\n8. Ensure data isolation between users",
+        "testStrategy": "Test user registration and login flow. Verify data isolation by creating lists with different users. Test CRUD operations for lists, categories, and items. Ensure real-time sync works across browser tabs.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-09-01T16:40:38.474Z",
-      "updated": "2025-09-02T00:06:15.155Z",
+      "updated": "2025-09-02T03:31:56.555Z",
       "description": "Tasks for master context"
     }
   }

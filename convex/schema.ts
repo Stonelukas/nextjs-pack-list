@@ -3,19 +3,22 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
+    clerkId: v.string(), // Clerk user ID
     name: v.string(),
     email: v.optional(v.string()),
-    tokenIdentifier: v.optional(v.string()),
-    workosId: v.optional(v.string()), // Keep for backward compatibility
+    imageUrl: v.optional(v.string()),
+    tokenIdentifier: v.optional(v.string()), // For Convex auth
     preferences: v.optional(v.object({
       theme: v.string(),
       defaultPriority: v.string(),
       autoSave: v.boolean(),
     })),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
   })
+    .index("by_clerk_id", ["clerkId"])
     .index("by_token", ["tokenIdentifier"])
     .index("by_email", ["email"])
-    .index("by_workos_id", ["workosId"]), // Keep for backward compatibility
   
   lists: defineTable({
     userId: v.id("users"),

@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { ConvexProvider } from "@/providers/convex-provider";
@@ -77,36 +85,60 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ConvexProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <DevelopmentProvider>
-              <AuthProvider>
-                <QueryProvider>
-                  <SkipNav />
-                  <WebVitalsReporter />
-                  <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
-                  <Analytics debug={process.env.NODE_ENV === 'development'} />
-                  <VercelDebug />
-                  <ErrorBoundary>
-                    <main id="main-content" className="pb-16 md:pb-0">
-                      {children}
-                    </main>
-                  </ErrorBoundary>
-                  <MobileNav />
-                  <Toaster />
-                </QueryProvider>
-              </AuthProvider>
-            </DevelopmentProvider>
-          </ThemeProvider>
-        </ConvexProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={inter.className}>
+          <ConvexProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <DevelopmentProvider>
+                <AuthProvider>
+                  <QueryProvider>
+                    <SkipNav />
+                    <WebVitalsReporter />
+                    <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
+                    <Analytics debug={process.env.NODE_ENV === 'development'} />
+                    <VercelDebug />
+                    <ErrorBoundary>
+                      <header className="flex justify-between items-center p-4 border-b">
+                        <div className="flex items-center gap-4">
+                          <h1 className="text-xl font-bold">Pack List</h1>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <SignedOut>
+                            <SignInButton mode="modal">
+                              <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                                Sign In
+                              </button>
+                            </SignInButton>
+                            <SignUpButton mode="modal">
+                              <button className="px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-600 rounded-md hover:bg-gray-50">
+                                Sign Up
+                              </button>
+                            </SignUpButton>
+                          </SignedOut>
+                          <SignedIn>
+                            <UserButton />
+                          </SignedIn>
+                        </div>
+                      </header>
+                      <main id="main-content" className="pb-16 md:pb-0">
+                        {children}
+                      </main>
+                    </ErrorBoundary>
+                    <MobileNav />
+                    <Toaster />
+                  </QueryProvider>
+                </AuthProvider>
+              </DevelopmentProvider>
+            </ThemeProvider>
+          </ConvexProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

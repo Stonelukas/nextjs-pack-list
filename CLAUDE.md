@@ -5,6 +5,7 @@
 ## =� IMPORTANT: Reference Documentation
 
 **ALWAYS consult these documents when implementing features:**
+- **Current Work Session** - @./.taskmaster/docs/CURRENT_WORK_SESSION.md - Active goals and progress
 - **Documentation Index** - @./.taskmaster/docs/INDEX.md - Start here for navigation
 - **Feature Implementations** - @./.taskmaster/docs/FEATURE_IMPLEMENTATIONS.md - What's been built and where
 - **Code Patterns** - @./.taskmaster/docs/CODE_PATTERNS.md - Reusable templates and patterns

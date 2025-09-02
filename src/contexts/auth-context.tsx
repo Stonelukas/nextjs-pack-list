@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useUser as useClerkUser } from '@clerk/nextjs';
 import { User, Priority } from '@/types';
 import { logError, AppError, ErrorType } from '@/lib/error-utils';
 
@@ -28,65 +29,76 @@ interface AuthProviderProps {
 
 /**
  * Authentication provider that manages user state and authentication status
- * In a real application, this would integrate with your authentication service
+ * Integrates with Clerk for authentication and syncs user data
  */
 export function AuthProvider({ children }: AuthProviderProps) {
+  const { user: clerkUser, isLoaded: clerkLoaded } = useClerkUser();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate checking for existing authentication on mount
+  // Sync Clerk user with our User type
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const syncUser = async () => {
       try {
-        // In a real app, this would check for valid tokens/sessions
-        const savedUser = localStorage.getItem('pack-list-user');
-        if (savedUser) {
-          const userData = JSON.parse(savedUser);
-          setUser(userData);
-        } else {
-          // Create a default user for demo purposes
-          const defaultUser: User = {
-            id: 'demo-user-1',
-            name: 'Demo User',
-            email: 'demo@packList.app',
-            preferences: {
-              theme: 'system',
-              defaultPriority: Priority.MEDIUM,
-              autoSave: true,
-            },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          setUser(defaultUser);
-          localStorage.setItem('pack-list-user', JSON.stringify(defaultUser));
+        if (clerkLoaded) {
+          if (clerkUser) {
+            // Convert Clerk user to our User type
+            const appUser: User = {
+              id: clerkUser.id,
+              name: clerkUser.fullName || clerkUser.firstName || 'User',
+              email: clerkUser.primaryEmailAddress?.emailAddress || '',
+              preferences: {
+                theme: 'system',
+                defaultPriority: Priority.MEDIUM,
+                autoSave: true,
+              },
+              createdAt: new Date(clerkUser.createdAt || Date.now()),
+              updatedAt: new Date(clerkUser.updatedAt || Date.now()),
+            };
+            
+            // Check for saved preferences
+            const savedPreferences = localStorage.getItem(`pack-list-preferences-${clerkUser.id}`);
+            if (savedPreferences) {
+              appUser.preferences = JSON.parse(savedPreferences);
+            }
+            
+            setUser(appUser);
+            localStorage.setItem('pack-list-user', JSON.stringify(appUser));
+          } else {
+            // No Clerk user - clear local state
+            setUser(null);
+            localStorage.removeItem('pack-list-user');
+          }
+          setIsLoading(false);
         }
       } catch (error) {
         logError(
           new AppError(
-            'Failed to load user authentication data',
+            'Failed to sync user authentication data',
             ErrorType.STORAGE,
             { 
               originalError: error instanceof Error ? error.message : String(error),
-              operation: 'checkAuthStatus'
+              operation: 'syncUser'
             }
           )
         );
-      } finally {
         setIsLoading(false);
       }
     };
 
-    checkAuthStatus();
-  }, []);
+    syncUser();
+  }, [clerkUser, clerkLoaded]);
 
+  // These functions are now handled by Clerk
+  // Keeping them for backward compatibility but they're no-ops
   const login = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('pack-list-user', JSON.stringify(userData));
+    // Authentication is handled by Clerk
+    console.warn('Login is now handled by Clerk. Use SignInButton component instead.');
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('pack-list-user');
+    // Authentication is handled by Clerk
+    console.warn('Logout is now handled by Clerk. Use UserButton or SignOutButton component instead.');
   };
 
   const updateUser = (updates: Partial<User>) => {
@@ -94,6 +106,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const updatedUser = { ...user, ...updates, updatedAt: new Date() };
       setUser(updatedUser);
       localStorage.setItem('pack-list-user', JSON.stringify(updatedUser));
+      
+      // Save preferences separately for persistence
+      if (updates.preferences) {
+        localStorage.setItem(`pack-list-preferences-${user.id}`, JSON.stringify(updatedUser.preferences));
+      }
     }
   };
 

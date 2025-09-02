@@ -4,6 +4,10 @@ import { immer } from 'zustand/middleware/immer';
 import { List, Category, Item, Template, Priority, User, UserPreferences } from '@/types';
 import { defaultTemplates, createListFromTemplate } from '@/data/default-templates';
 
+// Note: This store is being migrated to use Convex for cloud persistence
+// The useConvexStore hook should be preferred for new components
+// This store remains for backward compatibility during migration
+
 interface PackListState {
   // User
   user: User | null;
@@ -81,6 +85,10 @@ const findEntityById = <T extends { id: string }>(
   return entity || null;
 };
 
+/**
+ * @deprecated Use useConvexStore hook for cloud persistence
+ * This store remains for backward compatibility and offline-only usage
+ */
 export const usePackListStore = create<PackListState>()(
   persist(
     immer((set, get) => ({

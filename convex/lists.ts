@@ -1,14 +1,25 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-export const getLists = query({
+// Get all lists for a user by Clerk ID
+export const getUserLists = query({
   args: {
-    userId: v.id("users"),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
+    // Get user by Clerk ID
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (!user) {
+      return [];
+    }
+    
     const lists = await ctx.db
       .query("lists")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
     
     // For each list, get its categories and items
@@ -69,7 +80,7 @@ export const getList = query({
 
 export const createList = mutation({
   args: {
-    userId: v.id("users"),
+    clerkId: v.string(),
     name: v.string(),
     description: v.optional(v.string()),
     isTemplate: v.optional(v.boolean()),
@@ -77,9 +88,19 @@ export const createList = mutation({
     tags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
+    // Get user by Clerk ID
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
     const now = Date.now();
     return await ctx.db.insert("lists", {
-      userId: args.userId,
+      userId: user._id,
       name: args.name,
       description: args.description,
       isTemplate: args.isTemplate ?? false,
@@ -93,6 +114,7 @@ export const createList = mutation({
 
 export const updateList = mutation({
   args: {
+    clerkId: v.string(),
     listId: v.id("lists"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -100,7 +122,22 @@ export const updateList = mutation({
     isPublic: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { listId, ...updates } = args;
+    // Verify user owns the list
+    const list = await ctx.db.get(args.listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+    
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (!user || list.userId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+    
+    const { listId, clerkId, ...updates } = args;
     await ctx.db.patch(listId, {
       ...updates,
       updatedAt: Date.now(),
@@ -111,9 +148,25 @@ export const updateList = mutation({
 
 export const deleteList = mutation({
   args: {
+    clerkId: v.string(),
     listId: v.id("lists"),
   },
   handler: async (ctx, args) => {
+    // Verify user owns the list
+    const list = await ctx.db.get(args.listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+    
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (!user || list.userId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+    
     // Delete all items in categories of this list
     const categories = await ctx.db
       .query("categories")
