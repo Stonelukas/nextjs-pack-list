@@ -30,7 +30,7 @@ interface ListCardProps {
 
 export function ListCard({ list, onClick, onEdit }: ListCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const { deleteList, duplicateList, saveAsTemplate, getListProgress } = useConvexStore();
+  const { deleteList, duplicateList, saveAsTemplate, getListProgress, markListCompleted, markListIncomplete } = useConvexStore();
   
   // Use _id for Convex documents, fallback to id for compatibility
   const listId = (list as any)._id || list.id;
@@ -69,13 +69,30 @@ export function ListCard({ list, onClick, onEdit }: ListCardProps) {
     toast.info("Export feature coming soon!");
   };
 
+  const handleToggleCompletion = () => {
+    const isCompleted = !!(list as any).completedAt;
+    if (isCompleted) {
+      markListIncomplete(listId);
+    } else {
+      markListCompleted(listId);
+    }
+  };
+
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={onClick}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-lg">{list.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{list.name}</CardTitle>
+                {(list as any).completedAt && (
+                  <Badge variant="secondary" className="text-xs">
+                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    Completed
+                  </Badge>
+                )}
+              </div>
               {list.description && (
                 <CardDescription className="line-clamp-2">
                   {list.description}
@@ -116,6 +133,14 @@ export function ListCard({ list, onClick, onEdit }: ListCardProps) {
                 }}>
                   <Download className="mr-2 h-4 w-4" />
                   Export
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleCompletion();
+                }}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  {(list as any).completedAt ? "Mark as Incomplete" : "Mark as Complete"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 

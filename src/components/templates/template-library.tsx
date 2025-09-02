@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Template, TemplateCategory } from "@/types";
 import { useConvexStore } from "@/hooks/use-convex-store";
 import { TemplateCard } from "./template-card";
@@ -27,7 +27,7 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { searchTemplates, getTemplatesByCategory, getTemplatesBySeason, getTemplatesByDifficulty } from "@/data/default-templates";
 
@@ -38,7 +38,8 @@ interface TemplateLibraryProps {
 
 export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibraryProps) {
   const router = useRouter();
-  const { getAllTemplates, applyTemplate } = useConvexStore();
+  const searchParams = useSearchParams();
+  const { templates, applyTemplate } = useConvexStore();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -48,7 +49,22 @@ export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibrar
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [showOnlyUserTemplates, setShowOnlyUserTemplates] = useState(false);
 
-  const allTemplates = useMemo(() => getAllTemplates(), [getAllTemplates]);
+  // Handle query parameter filters
+  useEffect(() => {
+    const filter = searchParams.get("filter");
+    if (filter) {
+      switch (filter) {
+        case "mine":
+          setShowOnlyUserTemplates(true);
+          break;
+        case "recent":
+          // Sort by recent is handled in the filtered templates
+          break;
+      }
+    }
+  }, [searchParams]);
+
+  const allTemplates = useMemo(() => templates || [], [templates]);
 
   // Filter templates based on search and filters
   const filteredTemplates = useMemo(() => {

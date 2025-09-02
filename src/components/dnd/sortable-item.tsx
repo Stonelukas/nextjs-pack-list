@@ -20,7 +20,7 @@ export function SortableItem({ item, onTogglePacked, onUpdate, onDelete }: Sorta
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id });
+  } = useSortable({ id: (item as any)._id || item.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

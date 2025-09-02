@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useNavigationStore } from "@/store/navigation-store";
+import { useRoleBasedActions, useFilteredNavigation, useRoleBasedAccess } from "@/hooks/use-role-based-navigation";
 import {
   Sheet,
   SheetContent,
@@ -27,19 +29,35 @@ import {
   Package,
   Plus,
   List,
-  Template,
+  LayoutTemplate,
   Settings,
   Home,
   ChevronRight,
   Sparkles,
   LogIn,
+  PanelLeftClose,
+  PanelLeft,
+  Shield,
 } from "lucide-react";
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { isSignedIn, user } = useUser();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const {
+    mobileMenuOpen,
+    setMobileMenuOpen,
+    addToHistory,
+    toggleSidebar,
+    sidebarOpen
+  } = useNavigationStore();
+  const { canAccessSettings } = useRoleBasedActions();
+  const { userRole } = useRoleBasedAccess();
+  
+  // Track navigation history
+  useEffect(() => {
+    addToHistory(pathname);
+  }, [pathname, addToHistory]);
 
   const isActive = (path: string) => {
     if (path === "/" && pathname === "/") return true;
@@ -59,29 +77,43 @@ export function Header() {
       href: "/lists",
       icon: List,
       description: "Manage your packing lists",
+      requiredPermissions: ["view_lists"],
     },
     {
       title: "Templates",
       href: "/templates",
-      icon: Template,
+      icon: LayoutTemplate,
       description: "Browse and create templates",
+      requiredPermissions: ["view_templates"],
     },
+    ...(userRole === "admin" ? [{
+      title: "Admin",
+      href: "/admin",
+      icon: Shield,
+      description: "Admin dashboard and management",
+    }] : []),
   ];
 
-  const quickActions = [
+  const quickActionsBase = [
     {
       title: "New List",
       href: "/lists/new",
       icon: Plus,
       variant: "default" as const,
+      requiredPermissions: ["create_lists"],
     },
     {
       title: "Quick Start",
       href: "/templates",
       icon: Sparkles,
       variant: "outline" as const,
+      requiredPermissions: ["view_templates"],
     },
   ];
+
+  // Apply role-based filtering
+  const filteredNavItems = useFilteredNavigation(navItems);
+  const quickActions = useFilteredNavigation(quickActionsBase);
 
   const handleNavigation = (href: string) => {
     router.push(href);
@@ -93,6 +125,21 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         {/* Logo and Brand */}
         <div className="flex items-center gap-4">
+          {/* Desktop Sidebar Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="hidden lg:flex"
+          >
+            {sidebarOpen ? (
+              <PanelLeftClose className="h-5 w-5" />
+            ) : (
+              <PanelLeft className="h-5 w-5" />
+            )}
+            <span className="sr-only">Toggle sidebar</span>
+          </Button>
+          
           {/* Mobile Menu Trigger */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild className="lg:hidden">
@@ -109,7 +156,7 @@ export function Header() {
                 </SheetTitle>
               </SheetHeader>
               <nav className="mt-6 space-y-2">
-                {navItems.map((item) => (
+                {filteredNavItems.map((item) => (
                   <button
                     key={item.href}
                     onClick={() => handleNavigation(item.href)}
@@ -149,16 +196,27 @@ export function Header() {
                   ))}
                 </div>
 
-                {/* Settings in Mobile Menu */}
-                {isSignedIn && (
+                {/* Settings and Admin in Mobile Menu */}
+                {isSignedIn && (canAccessSettings || userRole === "admin") && (
                   <div className="border-t pt-4 mt-4">
-                    <button
-                      onClick={() => handleNavigation("/settings")}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Settings
-                    </button>
+                    {canAccessSettings && (
+                      <button
+                        onClick={() => handleNavigation("/settings")}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Settings
+                      </button>
+                    )}
+                    {userRole === "admin" && (
+                      <button
+                        onClick={() => handleNavigation("/admin")}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Shield className="h-4 w-4" />
+                        Admin Dashboard
+                      </button>
+                    )}
                   </div>
                 )}
               </nav>
@@ -178,10 +236,11 @@ export function Header() {
         <nav className="hidden lg:flex items-center gap-2">
           <NavigationMenu>
             <NavigationMenuList>
-              {navItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <NavigationMenuItem key={item.href}>
-                  <Link href={item.href} legacyBehavior passHref>
-                    <NavigationMenuLink
+                  <NavigationMenuLink asChild>
+                    <Link
+                      href={item.href}
                       className={cn(
                         "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50",
                         isActive(item.href) && "bg-accent/50"
@@ -189,8 +248,8 @@ export function Header() {
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {item.title}
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
               ))}
             </NavigationMenuList>

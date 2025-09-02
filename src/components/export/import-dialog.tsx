@@ -81,7 +81,6 @@ export function ImportDialog({ trigger }: ImportDialogProps) {
         if (categoryData.items && Array.isArray(categoryData.items)) {
           for (const itemData of categoryData.items) {
             await addItem(
-              newListId, 
               newCategoryId,
               itemData.name || "Imported Item",
               itemData.quantity || 1,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useConvexStore } from "@/hooks/use-convex-store";
 import { ListCard } from "./list-card";
 import { CreateListForm } from "./create-list-form";
@@ -10,7 +10,7 @@ import { ImportDialog } from "../export/import-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { SortAsc, Grid3x3, List as ListIcon, Package } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { searchLists } from "@/lib/search-utils";
 
 type SortOption = "name" | "date" | "completion";
@@ -18,15 +18,35 @@ type ViewMode = "grid" | "list";
 
 export function ListOverview() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { lists } = useConvexStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("date");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [showTemplates, setShowTemplates] = useState(true);
 
+  // Get status filter from URL query parameters
+  const statusFilter = searchParams.get("status");
+
   // Filter and sort lists
   const filteredAndSortedLists = useMemo(() => {
     let filtered = lists.filter(list => !list.isTemplate);
+
+    // Apply status filter from URL
+    if (statusFilter) {
+      switch (statusFilter) {
+        case "active":
+          filtered = filtered.filter(list => !list.completedAt);
+          break;
+        case "completed":
+          filtered = filtered.filter(list => list.completedAt);
+          break;
+        case "archived":
+          // For now, archived lists are those marked as archived (future implementation)
+          filtered = filtered.filter(list => (list as any).archived === true);
+          break;
+      }
+    }
 
     // Apply search filter using our search utility
     if (searchQuery) {
@@ -51,7 +71,7 @@ export function ListOverview() {
     });
 
     return sorted;
-  }, [lists, searchQuery, sortBy]);
+  }, [lists, searchQuery, sortBy, statusFilter]);
 
   const handleListClick = (listId: string) => {
     router.push(`/lists/${listId}`);
@@ -70,9 +90,17 @@ export function ListOverview() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">My Packing Lists</h1>
+          <h1 className="text-3xl font-bold">
+            {statusFilter === "active" && "Active Packing Lists"}
+            {statusFilter === "completed" && "Completed Packing Lists"}
+            {statusFilter === "archived" && "Archived Packing Lists"}
+            {!statusFilter && "My Packing Lists"}
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Manage and organize all your packing lists in one place
+            {statusFilter === "active" && "Lists you're currently working on"}
+            {statusFilter === "completed" && "Lists you've finished packing"}
+            {statusFilter === "archived" && "Your archived packing lists"}
+            {!statusFilter && "Manage and organize all your packing lists in one place"}
           </p>
         </div>
         <div className="flex gap-2">

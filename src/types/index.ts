@@ -94,6 +94,7 @@ export interface Item {
  */
 export interface Category {
   id: string;
+  _id?: any; // Convex ID type - used for backend operations
   name: string;
   color?: string;
   icon?: string;

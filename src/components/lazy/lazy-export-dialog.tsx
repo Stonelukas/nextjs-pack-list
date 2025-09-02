@@ -21,8 +21,8 @@ interface LazyExportDialogProps {
 
 export function LazyExportDialog({ listId, trigger }: LazyExportDialogProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const lists = usePackListStore((state) => state.lists);
-  const list = lists.find((l) => l.id === listId);
+  const { lists } = useConvexStore();
+  const list = lists.find((l) => l._id === listId || l.id === listId);
   
   if (!list) return null;
   

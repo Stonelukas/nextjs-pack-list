@@ -21,9 +21,16 @@ export function useConvexStore() {
   const createListMutation = useMutation(api.lists.createList);
   const updateListMutation = useMutation(api.lists.updateList);
   const deleteListMutation = useMutation(api.lists.deleteList);
+  const markListCompletedMutation = useMutation(api.lists.markListCompleted);
+  const markListIncompleteMutation = useMutation(api.lists.markListIncomplete);
   const addCategoryMutation = useMutation(api.lists.addCategory);
   const addItemMutation = useMutation(api.lists.addItem);
   const toggleItemPackedMutation = useMutation(api.lists.toggleItemPacked);
+
+  // Template mutations
+  const applyTemplateMutation = useMutation(api.templates.applyTemplate);
+  const saveAsTemplateMutation = useMutation(api.templates.createTemplateFromList);
+  const duplicateListMutation = useMutation(api.lists.duplicateList);
 
   // Ensure user exists in Convex
   useEffect(() => {
@@ -229,6 +236,106 @@ export function useConvexStore() {
     [lists]
   );
 
+  // Item management mutations
+  const updateItemMutation = useMutation(api.lists.updateItem);
+  const updateItem = useCallback(
+    async (listId: string, categoryId: string, itemId: string, updates: any) => {
+      try {
+        await updateItemMutation({
+          itemId: itemId as any,
+          ...updates
+        });
+        toast.success("Item updated successfully");
+      } catch (error) {
+        console.error("Failed to update item:", error);
+        toast.error("Failed to update item");
+      }
+    },
+    [updateItemMutation]
+  );
+
+  const deleteItemMutation = useMutation(api.lists.deleteItem);
+  const deleteItem = useCallback(
+    async (listId: string, categoryId: string, itemId: string) => {
+      try {
+        await deleteItemMutation({
+          itemId: itemId as any
+        });
+        toast.success("Item deleted successfully");
+      } catch (error) {
+        console.error("Failed to delete item:", error);
+        toast.error("Failed to delete item");
+      }
+    },
+    [deleteItemMutation]
+  );
+
+  const updateCategoryMutation = useMutation(api.lists.updateCategory);
+  const updateCategory = useCallback(
+    async (listId: string, categoryId: string, updates: any) => {
+      try {
+        await updateCategoryMutation({
+          categoryId: categoryId as any,
+          ...updates
+        });
+        toast.success("Category updated successfully");
+      } catch (error) {
+        console.error("Failed to update category:", error);
+        toast.error("Failed to update category");
+      }
+    },
+    [updateCategoryMutation]
+  );
+
+  const deleteCategoryMutation = useMutation(api.lists.deleteCategory);
+  const deleteCategory = useCallback(
+    async (listId: string, categoryId: string) => {
+      try {
+        await deleteCategoryMutation({
+          categoryId: categoryId as any
+        });
+        toast.success("Category deleted successfully");
+      } catch (error) {
+        console.error("Failed to delete category:", error);
+        toast.error("Failed to delete category");
+      }
+    },
+    [deleteCategoryMutation]
+  );
+
+  const toggleCategoryCollapseMutation = useMutation(api.lists.toggleCategoryCollapse);
+  const toggleCategoryCollapse = useCallback(
+    async (listId: string, categoryId: string) => {
+      try {
+        await toggleCategoryCollapseMutation({
+          categoryId: categoryId as any
+        });
+        // No toast for this as it's a frequent action
+      } catch (error) {
+        console.error("Failed to toggle category collapse:", error);
+        toast.error("Failed to toggle category");
+      }
+    },
+    [toggleCategoryCollapseMutation]
+  );
+
+  const reorderItemsMutation = useMutation(api.lists.reorderItems);
+  const reorderItems = useCallback(
+    async (listId: string, categoryId: string, itemIds: string[]) => {
+      try {
+        await reorderItemsMutation({
+          categoryId: categoryId as any,
+          itemIds: itemIds as any
+        });
+        // No toast for this as it's a frequent action during drag and drop
+      } catch (error) {
+        console.error("Failed to reorder items:", error);
+        toast.error("Failed to reorder items");
+      }
+    },
+    [reorderItemsMutation]
+  );
+
   return {
     // Data
     lists,
@@ -244,29 +351,90 @@ export function useConvexStore() {
 
     // Category operations
     addCategory,
+    updateCategory,
+    deleteCategory,
+    toggleCategoryCollapse,
 
     // Item operations
     addItem,
+    updateItem,
+    deleteItem,
     toggleItemPacked,
+    reorderItems,
 
-    // Template operations (TODO: Implement these)
+    // Template operations
     applyTemplate: async (templateId: string, listName: string) => {
-      toast.info("Template functionality coming soon");
-      // For now, create a regular empty list
-      const newListId = await createList(
-        listName,
-        "Created from template (template system coming soon)",
-        ["from-template"]
-      );
-      return newListId;
+      try {
+        const newListId = await applyTemplateMutation({
+          clerkId,
+          templateId: templateId as any,
+          listName,
+        });
+        toast.success(`Created "${listName}" from template`);
+        return newListId;
+      } catch (error) {
+        console.error("Failed to apply template:", error);
+        toast.error("Failed to create list from template");
+        return null;
+      }
     },
     saveAsTemplate: async (listId: string, name: string, description: string) => {
-      toast.info("Template functionality coming soon");
-      return null;
+      try {
+        const templateId = await saveAsTemplateMutation({
+          listId: listId as any,
+          name,
+          description,
+          isPublic: false,
+        });
+        toast.success(`Template "${name}" saved successfully`);
+        return templateId;
+      } catch (error) {
+        console.error("Failed to save template:", error);
+        toast.error("Failed to save template");
+        return null;
+      }
     },
-    duplicateList: (listId: string) => {
-      toast.info("Duplicate functionality coming soon");
-      return null;
+    duplicateList: async (listId: string) => {
+      try {
+        const newListId = await duplicateListMutation({
+          clerkId,
+          listId: listId as any,
+        });
+        toast.success("List duplicated successfully");
+        return newListId;
+      } catch (error) {
+        console.error("Failed to duplicate list:", error);
+        toast.error("Failed to duplicate list");
+        return null;
+      }
+    },
+    markListCompleted: async (listId: string) => {
+      try {
+        await markListCompletedMutation({
+          clerkId,
+          listId: listId as any,
+        });
+        toast.success("List marked as completed");
+        return true;
+      } catch (error) {
+        console.error("Failed to mark list as completed:", error);
+        toast.error("Failed to mark list as completed");
+        return false;
+      }
+    },
+    markListIncomplete: async (listId: string) => {
+      try {
+        await markListIncompleteMutation({
+          clerkId,
+          listId: listId as any,
+        });
+        toast.success("List marked as incomplete");
+        return true;
+      } catch (error) {
+        console.error("Failed to mark list as incomplete:", error);
+        toast.error("Failed to mark list as incomplete");
+        return false;
+      }
     },
 
     // Utility

@@ -1,7 +1,7 @@
 "use client"
 
 // React imports
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 // Third-party imports
 import { format } from "date-fns";
@@ -21,14 +21,15 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { 
-  Plus, 
-  Edit2, 
+import {
+  Plus,
+  Edit2,
   Package,
   CheckCircle2,
   AlertCircle,
   Star,
-  Calendar
+  Calendar,
+  Check
 } from "lucide-react";
 
 // Local imports - Types
@@ -48,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 
 // Local imports - Feature Components
@@ -58,15 +60,19 @@ import { LazyExportDialog } from "../lazy/lazy-export-dialog";
 import { LazyImportDialog } from "../lazy/lazy-import-dialog";
 import { FloatingActionButton, SpeedDialAction } from "@/components/mobile/floating-action-button";
 import { PullToRefresh } from "@/components/mobile/pull-to-refresh";
+import { QuickAddItemDialog } from "@/components/items/quick-add-item-dialog";
 
 interface ListDetailProps {
   listId: string;
 }
 
 export function ListDetail({ listId }: ListDetailProps) {
-  const { lists, addCategory, reorderCategories, getListProgress } = useConvexStore();
+  const { lists, addCategory, reorderCategories, getListProgress, addItem, markListCompleted, markListIncomplete } = useConvexStore();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [isQuickAddItemOpen, setIsQuickAddItemOpen] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const previouslyAllPacked = useRef(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -125,6 +131,18 @@ export function ListDetail({ listId }: ListDetailProps) {
       }
     });
   }, [newCategoryName, listId, listCategories.length, addCategory]);
+
+  const handleQuickAddItem = useCallback((categoryId: string, itemData: any) => {
+    measurePerformance('quick-add-item', () => {
+      addItem(
+        categoryId,
+        itemData.name,
+        itemData.quantity,
+        itemData.priority,
+        itemData.notes
+      );
+    });
+  }, [addItem]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -188,6 +206,43 @@ export function ListDetail({ listId }: ListDetailProps) {
     toast.success("List refreshed");
   };
 
+  // Check if all items are packed
+  const isAllItemsPacked = useMemo(() => {
+    if (!stats || stats.totalItems === 0) return false;
+    return stats.packedItems === stats.totalItems;
+  }, [stats]);
+
+  // Handle manual completion toggle
+  const handleToggleCompletion = async () => {
+    if (!list) return;
+
+    if (list.completedAt) {
+      await markListIncomplete(listId);
+    } else {
+      await markListCompleted(listId);
+    }
+  };
+
+  // Handle completion confirmation from dialog
+  const handleConfirmCompletion = async () => {
+    await markListCompleted(listId);
+    setShowCompletionDialog(false);
+  };
+
+  // Watch for auto-completion when all items are packed
+  useEffect(() => {
+    if (!list || list.completedAt) return; // Don't show dialog if already completed
+
+    const currentlyAllPacked = isAllItemsPacked && stats && stats.totalItems > 0;
+
+    // Show dialog only when transitioning from not-all-packed to all-packed
+    if (currentlyAllPacked && !previouslyAllPacked.current) {
+      setShowCompletionDialog(true);
+    }
+
+    previouslyAllPacked.current = currentlyAllPacked;
+  }, [isAllItemsPacked, stats, list]);
+
   const mainContent = (
     <div className="space-y-6">
       {/* Header */}
@@ -203,6 +258,15 @@ export function ListDetail({ listId }: ListDetailProps) {
             <LazyExportDialog listId={listId} />
             <LazyImportDialog />
             <SaveAsTemplate list={list} />
+            <Button
+              variant={list.completedAt ? "default" : "outline"}
+              size="sm"
+              onClick={handleToggleCompletion}
+              className={list.completedAt ? "bg-green-600 hover:bg-green-700" : ""}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              {list.completedAt ? "Mark Incomplete" : "Mark Complete"}
+            </Button>
             <Button variant="outline" size="icon">
               <Edit2 className="h-4 w-4" />
             </Button>
@@ -271,13 +335,24 @@ export function ListDetail({ listId }: ListDetailProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Categories</h2>
-          <Dialog open={isAddingCategory} onOpenChange={setIsAddingCategory}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Category
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="gap-2"
+              onClick={() => setIsQuickAddItemOpen(true)}
+              disabled={listCategories.length === 0}
+            >
+              <Package className="h-4 w-4" />
+              Quick Add Item
+            </Button>
+            <Dialog open={isAddingCategory} onOpenChange={setIsAddingCategory}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Category
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Category</DialogTitle>
@@ -309,6 +384,7 @@ export function ListDetail({ listId }: ListDetailProps) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Categories List */}
@@ -328,13 +404,13 @@ export function ListDetail({ listId }: ListDetailProps) {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={listCategories.map(cat => cat.id)}
+              items={listCategories.map(cat => cat._id || cat.id || `category-${cat.name}`)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-3">
                 {listCategories.map((category) => (
                   <SortableCategory
-                    key={category.id}
+                    key={category._id || category.id || `category-${category.name}`}
                     listId={listId}
                     category={category}
                   />
@@ -400,7 +476,7 @@ export function ListDetail({ listId }: ListDetailProps) {
           <SpeedDialAction
             icon={<Package className="h-4 w-4" />}
             label="Quick Add Item"
-            onClick={() => toast.info("Quick add item coming soon")}
+            onClick={() => setIsQuickAddItemOpen(true)}
           />
         </FloatingActionButton>
       </div>
@@ -409,6 +485,37 @@ export function ListDetail({ listId }: ListDetailProps) {
       <div className="hidden md:block">
         {mainContent}
       </div>
+
+      {/* Quick Add Item Dialog */}
+      <QuickAddItemDialog
+        open={isQuickAddItemOpen}
+        onOpenChange={setIsQuickAddItemOpen}
+        categories={listCategories}
+        onAddItem={handleQuickAddItem}
+      />
+
+      {/* Auto-completion Dialog */}
+      <AlertDialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>🎉 All Items Packed!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Congratulations! You've packed all items in "{list?.name}".
+              Would you like to mark this list as completed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Not Yet</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmCompletion}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Mark as Complete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

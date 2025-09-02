@@ -27,12 +27,14 @@ export default defineSchema({
     isTemplate: v.boolean(),
     isPublic: v.optional(v.boolean()),
     tags: v.optional(v.array(v.string())),
+    completedAt: v.optional(v.number()),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_template", ["isTemplate"])
-    .index("by_public", ["isPublic"]),
+    .index("by_public", ["isPublic"])
+    .index("by_completed", ["completedAt"]),
   
   categories: defineTable({
     listId: v.id("lists"),
@@ -57,12 +59,14 @@ export default defineSchema({
     description: v.optional(v.string()),
     weight: v.optional(v.number()),
     tags: v.optional(v.array(v.string())),
+    order: v.optional(v.number()),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })
     .index("by_category", ["categoryId"])
     .index("by_packed", ["packed"])
-    .index("by_priority", ["priority"]),
+    .index("by_priority", ["priority"])
+    .index("by_category_order", ["categoryId", "order"]),
   
   templates: defineTable({
     name: v.string(),

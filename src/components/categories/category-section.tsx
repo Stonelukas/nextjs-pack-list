@@ -90,12 +90,12 @@ export function CategorySection({
     const { active, over } = event;
 
     if (active.id !== over?.id) {
-      const oldIndex = category.items.findIndex((item) => item.id === active.id);
-      const newIndex = category.items.findIndex((item) => item.id === over?.id);
+      const oldIndex = category.items.findIndex((item) => (item._id || item.id) === active.id);
+      const newIndex = category.items.findIndex((item) => (item._id || item.id) === over?.id);
       
       if (oldIndex !== -1 && newIndex !== -1) {
         const newOrder = arrayMove(category.items, oldIndex, newIndex);
-        reorderItems(listId, category.id, newOrder.map(item => item.id));
+        reorderItems(listId, category.id, newOrder.map(item => item._id || item.id));
       }
     }
   };
@@ -116,7 +116,9 @@ export function CategorySection({
   };
 
   const handleAddItem = (itemData: Omit<Item, "id" | "categoryId" | "createdAt" | "updatedAt">) => {
-    addItem(listId, category.id, { ...itemData, categoryId: category.id });
+    // Use the Convex _id field for the mutation
+    const categoryId = category._id || category.id;
+    addItem(categoryId, itemData.name, itemData.quantity, itemData.priority, itemData.notes);
     toast.success("Item added successfully");
   };
 
@@ -130,7 +132,7 @@ export function CategorySection({
   };
 
   const handleToggleItemPacked = (itemId: string) => {
-    toggleItemPacked(listId, category.id, itemId);
+    toggleItemPacked(itemId);
   };
 
   const handleDeleteCategory = () => {
@@ -295,13 +297,13 @@ export function CategorySection({
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={category.items.map(item => item.id)}
+                  items={category.items.map(item => item._id || item.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-2">
                     {category.items.map((item) => (
                       <SortableItem
-                        key={item.id}
+                        key={item._id || item.id}
                         item={item}
                         onTogglePacked={handleToggleItemPacked}
                         onUpdate={handleUpdateItem}

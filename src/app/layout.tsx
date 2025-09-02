@@ -18,6 +18,8 @@ import { MobileNav } from "@/components/mobile/mobile-nav";
 import { ErrorBoundary } from "@/components/error/error-boundary";
 import { SkipNav } from "@/components/accessibility/skip-nav";
 import { DevelopmentProvider } from "@/providers/development-provider";
+import { Header } from "@/components/navigation/header";
+import { NavigationLayout } from "@/components/navigation/navigation-layout";
 import { WebVitalsReporter } from "./web-vitals";
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
@@ -104,31 +106,10 @@ export default function RootLayout({
                     <Analytics debug={process.env.NODE_ENV === 'development'} />
                     <VercelDebug />
                     <ErrorBoundary>
-                      <header className="flex justify-between items-center p-4 border-b">
-                        <div className="flex items-center gap-4">
-                          <h1 className="text-xl font-bold">Pack List</h1>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <SignedOut>
-                            <SignInButton mode="modal">
-                              <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                                Sign In
-                              </button>
-                            </SignInButton>
-                            <SignUpButton mode="modal">
-                              <button className="px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-600 rounded-md hover:bg-gray-50">
-                                Sign Up
-                              </button>
-                            </SignUpButton>
-                          </SignedOut>
-                          <SignedIn>
-                            <UserButton />
-                          </SignedIn>
-                        </div>
-                      </header>
-                      <main id="main-content" className="pb-16 md:pb-0">
+                      <Header />
+                      <NavigationLayout>
                         {children}
-                      </main>
+                      </NavigationLayout>
                     </ErrorBoundary>
                     <MobileNav />
                     <Toaster />

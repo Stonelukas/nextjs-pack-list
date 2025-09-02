@@ -5,66 +5,11 @@ import { usePathname } from "next/navigation";
 import { ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Fragment } from "react";
-
-interface BreadcrumbItem {
-  title: string;
-  href?: string;
-}
+import { useBreadcrumbs } from "@/hooks/navigation";
 
 export function Breadcrumbs() {
   const pathname = usePathname();
-
-  const generateBreadcrumbs = (): BreadcrumbItem[] => {
-    const segments = pathname.split("/").filter(Boolean);
-    const breadcrumbs: BreadcrumbItem[] = [
-      { title: "Home", href: "/" },
-    ];
-
-    let currentPath = "";
-    segments.forEach((segment, index) => {
-      currentPath += `/${segment}`;
-      const isLast = index === segments.length - 1;
-
-      // Handle dynamic routes and format titles
-      let title = segment;
-      
-      // Format common route names
-      switch (segment) {
-        case "lists":
-          title = "Lists";
-          break;
-        case "templates":
-          title = "Templates";
-          break;
-        case "settings":
-          title = "Settings";
-          break;
-        case "new":
-          title = "New";
-          break;
-        case "edit":
-          title = "Edit";
-          break;
-        default:
-          // Handle UUIDs or IDs (don't show them in breadcrumbs)
-          if (segment.match(/^[a-f0-9-]+$/i) && segment.length > 20) {
-            title = "Details";
-          } else {
-            // Capitalize first letter
-            title = segment.charAt(0).toUpperCase() + segment.slice(1);
-          }
-      }
-
-      breadcrumbs.push({
-        title,
-        href: isLast ? undefined : currentPath,
-      });
-    });
-
-    return breadcrumbs;
-  };
-
-  const breadcrumbs = generateBreadcrumbs();
+  const breadcrumbs = useBreadcrumbs();
 
   // Don't show breadcrumbs on home page
   if (pathname === "/") {
@@ -81,7 +26,7 @@ export function Breadcrumbs() {
           {index > 0 && (
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           )}
-          {breadcrumb.href ? (
+          {!breadcrumb.isActive ? (
             <Link
               href={breadcrumb.href}
               className={cn(
@@ -90,7 +35,7 @@ export function Breadcrumbs() {
               )}
             >
               {index === 0 && <Home className="h-3 w-3" />}
-              {breadcrumb.title}
+              {breadcrumb.label}
             </Link>
           ) : (
             <span
@@ -101,7 +46,7 @@ export function Breadcrumbs() {
               aria-current="page"
             >
               {index === 0 && <Home className="h-3 w-3" />}
-              {breadcrumb.title}
+              {breadcrumb.label}
             </span>
           )}
         </Fragment>

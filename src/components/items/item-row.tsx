@@ -57,7 +57,7 @@ export function ItemRow({
 
   const handleNameSave = () => {
     if (editedName.trim() && editedName !== item.name) {
-      onUpdate(item.id, { name: editedName.trim() });
+      onUpdate((item as any)._id || item.id, { name: editedName.trim() });
     } else {
       setEditedName(item.name);
     }
@@ -72,7 +72,7 @@ export function ItemRow({
   const handleQuantitySave = () => {
     const qty = parseInt(editedQuantity);
     if (!isNaN(qty) && qty > 0 && qty !== item.quantity) {
-      onUpdate(item.id, { quantity: qty });
+      onUpdate((item as any)._id || item.id, { quantity: qty });
     } else {
       setEditedQuantity(item.quantity.toString());
     }
@@ -85,12 +85,12 @@ export function ItemRow({
   };
 
   const incrementQuantity = () => {
-    onUpdate(item.id, { quantity: item.quantity + 1 });
+    onUpdate((item as any)._id || item.id, { quantity: item.quantity + 1 });
   };
 
   const decrementQuantity = () => {
     if (item.quantity > 1) {
-      onUpdate(item.id, { quantity: item.quantity - 1 });
+      onUpdate((item as any)._id || item.id, { quantity: item.quantity - 1 });
     }
   };
 
@@ -135,7 +135,7 @@ export function ItemRow({
         {/* Checkbox */}
         <Checkbox
           checked={item.packed}
-          onCheckedChange={() => onTogglePacked(item.id)}
+          onCheckedChange={() => onTogglePacked((item as any)._id || item.id)}
           className="h-5 w-5"
         />
 
@@ -265,7 +265,7 @@ export function ItemRow({
           <ItemForm
             categoryId={item.categoryId}
             item={item}
-            onSubmit={(data) => onUpdate(item.id, data)}
+            onSubmit={(data) => onUpdate((item as any)._id || item.id, data)}
           />
           
           <Button
@@ -286,7 +286,7 @@ export function ItemRow({
       <div className="md:hidden">
         <SwipeableItem
           onSwipeLeft={() => setShowDeleteDialog(true)}
-          onSwipeRight={() => onTogglePacked(item.id)}
+          onSwipeRight={() => onTogglePacked((item as any)._id || item.id)}
           leftAction={{
             icon: item.packed ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" />,
             label: item.packed ? "Unpack" : "Pack",
@@ -318,7 +318,7 @@ export function ItemRow({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => onDelete(item.id)}
+              onClick={() => onDelete((item as any)._id || item.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

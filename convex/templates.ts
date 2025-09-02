@@ -49,6 +49,103 @@ export const getPublicTemplates = query({
   },
 });
 
+// Apply a template to create a new list
+export const applyTemplate = mutation({
+  args: {
+    clerkId: v.string(),
+    templateId: v.id("templates"),
+    listName: v.string(),
+    listDescription: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get user by Clerk ID
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get the template
+    const template = await ctx.db.get(args.templateId);
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    // Create the new list
+    const now = Date.now();
+    const listId = await ctx.db.insert("lists", {
+      userId: user._id,
+      name: args.listName,
+      description: args.listDescription || `Created from template: ${template.name}`,
+      isTemplate: false,
+      isPublic: false,
+      tags: template.tags,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Get template items grouped by category
+    const templateItems = await ctx.db
+      .query("templateItems")
+      .withIndex("by_template", (q) => q.eq("templateId", args.templateId))
+      .collect();
+
+    // Group items by category
+    const categoriesMap = new Map<string, any[]>();
+    templateItems.forEach(item => {
+      if (!categoriesMap.has(item.categoryName)) {
+        categoriesMap.set(item.categoryName, []);
+      }
+      categoriesMap.get(item.categoryName)!.push(item);
+    });
+
+    // Create categories and items
+    let categoryOrder = 0;
+    for (const [categoryName, items] of categoriesMap.entries()) {
+      // Create category
+      const categoryId = await ctx.db.insert("categories", {
+        listId,
+        name: categoryName,
+        color: getDefaultCategoryColor(categoryOrder),
+        icon: getDefaultCategoryIcon(categoryName),
+        order: categoryOrder,
+        collapsed: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // Create items for this category
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        await ctx.db.insert("items", {
+          categoryId,
+          name: item.name,
+          quantity: item.quantity,
+          packed: false,
+          priority: item.priority,
+          notes: item.notes,
+          order: i,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      categoryOrder++;
+    }
+
+    // Increment template usage count
+    await ctx.db.patch(args.templateId, {
+      usageCount: (template.usageCount || 0) + 1,
+      updatedAt: now,
+    });
+
+    return listId;
+  },
+});
+
 // Create a template from a list
 export const createTemplateFromList = mutation({
   args: {
