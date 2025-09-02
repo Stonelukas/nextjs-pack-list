@@ -355,7 +355,7 @@ export const createUser = mutation({
   },
 });
 
-export const updateUser = mutation({
+export const updateUserFromWebhook = mutation({
   args: {
     clerkId: v.string(),
     name: v.string(),
@@ -398,7 +398,7 @@ export const updateUser = mutation({
   },
 });
 
-export const deleteUser = mutation({
+export const deleteUserFromWebhook = mutation({
   args: {
     clerkId: v.string(),
   },
