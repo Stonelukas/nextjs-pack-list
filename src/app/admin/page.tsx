@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { useConvexStore } from "@/hooks/use-convex-store";
 import { UserManagement } from "@/components/admin/users/user-management";
 import { AnalyticsDashboard } from "@/components/admin/analytics/analytics-dashboard";
-import { useQuery } from "convex/react";
+import { ContentModeration } from "@/components/admin/moderation/content-moderation";
+import { SystemSettings } from "@/components/admin/settings/system-settings";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Users, Package, Settings, BarChart3, Shield, Database, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +25,11 @@ export default function AdminDashboardPage() {
   // Fetch admin statistics
   const userStats = useQuery(api.users.getUserStats, {});
   const allUsers = useQuery(api.users.getAllUsers, {});
+
+  // Moderation functions
+  const initializeModerationRecords = useMutation(api.moderation.initializeModerationRecords);
+  const cleanupDuplicateModerationRecords = useMutation(api.moderation.cleanupDuplicateModerationRecords);
+  const createTestModerationContent = useMutation(api.moderation.createTestModerationContent);
 
   // Simple admin check - in production, use proper role management
   useEffect(() => {
@@ -146,6 +153,7 @@ export default function AdminDashboardPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="moderation">Moderation</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -163,14 +171,59 @@ export default function AdminDashboardPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Quick Actions</h3>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => router.push("/seed-templates")}
                     >
                       Seed Templates
                     </Button>
                     <Button variant="outline">Export Data</Button>
                     <Button variant="outline">View Logs</Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          toast.info("Initializing moderation records...");
+                          const result = await initializeModerationRecords({});
+                          toast.success(`Created ${result.created} moderation records`);
+                        } catch (error) {
+                          toast.error("Failed to initialize moderation records");
+                          console.error("Moderation initialization error:", error);
+                        }
+                      }}
+                    >
+                      Init Moderation
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          toast.info("Creating test content...");
+                          const result = await createTestModerationContent({});
+                          toast.success(`Created ${result.created} test items`);
+                        } catch (error) {
+                          toast.error("Failed to create test content");
+                          console.error("Test content creation error:", error);
+                        }
+                      }}
+                    >
+                      Create Test Content
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          toast.info("Cleaning up duplicates...");
+                          const result = await cleanupDuplicateModerationRecords({});
+                          toast.success(`Removed ${result.removed} duplicate records`);
+                        } catch (error) {
+                          toast.error("Failed to cleanup duplicates");
+                          console.error("Cleanup error:", error);
+                        }
+                      }}
+                    >
+                      Cleanup Duplicates
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -184,6 +237,10 @@ export default function AdminDashboardPage() {
 
         <TabsContent value="analytics" className="space-y-4">
           <AnalyticsDashboard />
+        </TabsContent>
+
+        <TabsContent value="moderation" className="space-y-4">
+          <ContentModeration />
         </TabsContent>
 
         <TabsContent value="content" className="space-y-4">
@@ -214,19 +271,7 @@ export default function AdminDashboardPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Settings</CardTitle>
-              <CardDescription>
-                Configure application settings and preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                System settings coming soon...
-              </p>
-            </CardContent>
-          </Card>
+          <SystemSettings />
         </TabsContent>
       </Tabs>
     </div>
