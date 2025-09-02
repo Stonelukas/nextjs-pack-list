@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { ConvexError } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 // Get or create user based on Clerk ID
 export const getOrCreateUser = mutation({
@@ -312,5 +313,105 @@ export const getUserActivity = query({
     return activities
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, limit);
+  },
+});
+
+// Webhook functions for Clerk integration
+export const createUser = mutation({
+  args: {
+    clerkId: v.string(),
+    name: v.string(),
+    email: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if user already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .unique();
+
+    if (existingUser) {
+      return existingUser._id;
+    }
+
+    // Create new user
+    const userId = await ctx.db.insert("users", {
+      clerkId: args.clerkId,
+      name: args.name,
+      email: args.email,
+      imageUrl: args.imageUrl,
+      role: "user", // Default role
+      preferences: {
+        theme: "system",
+        defaultPriority: "medium",
+        autoSave: true,
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return userId;
+  },
+});
+
+export const updateUser = mutation({
+  args: {
+    clerkId: v.string(),
+    name: v.string(),
+    email: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .unique();
+
+    if (!user) {
+      // If user doesn't exist, create them
+      return await ctx.db.insert("users", {
+        clerkId: args.clerkId,
+        name: args.name,
+        email: args.email,
+        imageUrl: args.imageUrl,
+        role: "user",
+        preferences: {
+          theme: "system",
+          defaultPriority: "medium",
+          autoSave: true,
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    // Update existing user
+    await ctx.db.patch(user._id, {
+      name: args.name,
+      email: args.email,
+      imageUrl: args.imageUrl,
+      updatedAt: Date.now(),
+    });
+
+    return user._id;
+  },
+});
+
+export const deleteUser = mutation({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .unique();
+
+    if (user) {
+      await ctx.db.delete(user._id);
+    }
+
+    return { success: true };
   },
 });
