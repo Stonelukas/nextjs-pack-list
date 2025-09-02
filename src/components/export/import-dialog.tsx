@@ -57,37 +57,37 @@ export function ImportDialog({ trigger }: ImportDialogProps) {
       const text = await selectedFile.text();
       const { list: importedList, categories: importedCategories } = importFromJSON(text);
 
-      // Create new list
-      const newListId = createList({
-        name: importedList.name || "Imported List",
-        description: importedList.description || "",
-        tags: importedList.tags || [],
-        isTemplate: false,
-        categories: [],
-        userId: "imported-user",
-      });
+      // Create new list using Convex store
+      const newListId = await createList(
+        importedList.name || "Imported List",
+        importedList.description || "",
+        importedList.tags || []
+      );
+
+      if (!newListId) {
+        throw new Error("Failed to create imported list");
+      }
 
       // Add categories and items
       for (const categoryData of importedCategories) {
-        const newCategoryId = addCategory(newListId, {
-          name: categoryData.name || "Imported Category",
-          icon: categoryData.icon || "📦",
-          order: 0,
-          collapsed: false,
-        });
+        const newCategoryId = await addCategory(newListId, 
+          categoryData.name || "Imported Category",
+          categoryData.icon || "📦",
+          categoryData.icon || "📦",
+          0
+        );
 
         // Add items for this category
         if (categoryData.items && Array.isArray(categoryData.items)) {
           for (const itemData of categoryData.items) {
-            addItem(newListId, newCategoryId, {
-              name: itemData.name || "Imported Item",
-              quantity: itemData.quantity || 1,
-              priority: itemData.priority || Priority.LOW,
-              packed: itemData.packed || false,
-              description: itemData.description || "",
-              weight: itemData.weight,
-              categoryId: newCategoryId,
-            });
+            await addItem(
+              newListId, 
+              newCategoryId,
+              itemData.name || "Imported Item",
+              itemData.quantity || 1,
+              itemData.priority || Priority.LOW,
+              itemData.description || ""
+            );
           }
         }
       }

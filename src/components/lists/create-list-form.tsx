@@ -63,14 +63,14 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
         toast.success("List created from template!");
       } else {
         // Create list from scratch
-        listId = createList({
-          name: name.trim(),
-          description: description.trim(),
-          categories: [],
-          tags: [],
-          isTemplate: false,
-          userId: user?.id || "anonymous"
-        });
+        listId = await createList(
+          name.trim(),
+          description.trim(),
+          []
+        );
+        if (!listId) {
+          throw new Error("Failed to create list");
+        }
         trackListCreated('custom');
         toast.success("List created successfully!");
       }

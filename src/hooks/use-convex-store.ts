@@ -14,6 +14,7 @@ export function useConvexStore() {
   // Queries
   const lists = useQuery(api.lists.getUserLists, clerkId ? { clerkId } : "skip") || [];
   const convexUser = useQuery(api.users.getUserByClerkId, clerkId ? { clerkId } : "skip");
+  const templates = useQuery(api.templates.getPublicTemplates) || [];
 
   // Mutations
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
@@ -234,7 +235,7 @@ export function useConvexStore() {
     user: convexUser,
     isAuthenticated: !!user,
     isLoading: clerkId && !convexUser,
-    templates: [], // TODO: Implement templates query from Convex
+    templates, // Now fetching from Convex
 
     // List operations
     createList,
