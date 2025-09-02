@@ -151,12 +151,12 @@ export function ListOverview() {
             ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
             : "space-y-4"
         }>
-          {filteredAndSortedLists.map((list) => (
+          {filteredAndSortedLists.map((list: any) => (
             <ListCard
-              key={list.id}
+              key={list._id}
               list={list}
-              onClick={() => handleListClick(list.id)}
-              onEdit={() => handleListEdit(list.id)}
+              onClick={() => handleListClick(list._id)}
+              onEdit={() => handleListEdit(list._id)}
             />
           ))}
         </div>

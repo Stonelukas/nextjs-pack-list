@@ -263,6 +263,10 @@ export function useConvexStore() {
       toast.info("Template functionality coming soon");
       return null;
     },
+    duplicateList: (listId: string) => {
+      toast.info("Duplicate functionality coming soon");
+      return null;
+    },
 
     // Utility
     getListProgress,

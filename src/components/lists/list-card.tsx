@@ -30,21 +30,23 @@ interface ListCardProps {
 
 export function ListCard({ list, onClick, onEdit }: ListCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const { deleteList, duplicateList, saveAsTemplate, getListStatistics } = useConvexStore();
+  const { deleteList, duplicateList, saveAsTemplate, getListProgress } = useConvexStore();
   
-  const stats = getListStatistics(list.id);
+  // Use _id for Convex documents, fallback to id for compatibility
+  const listId = (list as any)._id || list.id;
+  const stats = getListProgress(listId);
   const completionPercentage = stats?.completionPercentage || 0;
   const totalItems = stats?.totalItems || 0;
   const packedItems = stats?.packedItems || 0;
 
   const handleDelete = () => {
-    deleteList(list.id);
+    deleteList(listId);
     toast.success("List deleted successfully");
     setShowDeleteDialog(false);
   };
 
   const handleDuplicate = () => {
-    const newListId = duplicateList(list.id);
+    const newListId = duplicateList(listId);
     if (newListId) {
       toast.success("List duplicated successfully");
     }
@@ -52,7 +54,7 @@ export function ListCard({ list, onClick, onEdit }: ListCardProps) {
 
   const handleSaveAsTemplate = () => {
     const templateId = saveAsTemplate(
-      list.id,
+      listId,
       `${list.name} Template`,
       `Template based on ${list.name}`,
       false
