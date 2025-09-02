@@ -45,7 +45,10 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
       
       if (createFrom === "template" && selectedTemplateId) {
         // Create list from template
-        listId = applyTemplate(selectedTemplateId, name.trim());
+        listId = await applyTemplate(selectedTemplateId, name.trim());
+        if (!listId) {
+          throw new Error("Failed to create list from template");
+        }
         const template = templates.find(t => t.id === selectedTemplateId);
 
         // Track template usage

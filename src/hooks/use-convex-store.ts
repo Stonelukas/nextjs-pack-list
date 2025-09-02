@@ -251,7 +251,13 @@ export function useConvexStore() {
     // Template operations (TODO: Implement these)
     applyTemplate: async (templateId: string, listName: string) => {
       toast.info("Template functionality coming soon");
-      return null;
+      // For now, create a regular empty list
+      const newListId = await createList({
+        name: listName,
+        description: "Created from template (template system coming soon)",
+        tags: ["from-template"],
+      });
+      return newListId;
     },
     saveAsTemplate: async (listId: string, name: string, description: string) => {
       toast.info("Template functionality coming soon");
