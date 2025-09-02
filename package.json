@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "analyze": "ANALYZE=true next build",
-    "build": "next build",
+    "build": "bun run build:convex && next build",
+    "build:convex": "convex deploy --cmd-url-env-var-name=NEXT_PUBLIC_CONVEX_URL",
+    "build:local": "next build",
     "dev": "next dev",
     "lint": "eslint",
     "start": "next start"

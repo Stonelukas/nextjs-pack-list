@@ -1,0 +1,8 @@
+{
+  "buildCommand": "bun run build",
+  "installCommand": "bun install",
+  "framework": "nextjs",
+  "env": {
+    "CONVEX_DEPLOY_KEY": "@convex_deploy_key"
+  }
+}
