@@ -64,7 +64,7 @@ interface ListDetailProps {
 }
 
 export function ListDetail({ listId }: ListDetailProps) {
-  const { lists, addCategory, reorderCategories, getListStatistics } = useConvexStore();
+  const { lists, addCategory, reorderCategories, getListProgress } = useConvexStore();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   
@@ -76,7 +76,7 @@ export function ListDetail({ listId }: ListDetailProps) {
   );
 
   const list = useMemo(() => 
-    lists.find(l => l.id === listId),
+    lists.find(l => l._id === listId || l.id === listId),
     [lists, listId]
   );
   
@@ -86,8 +86,8 @@ export function ListDetail({ listId }: ListDetailProps) {
   );
   
   const stats = useMemo(() => 
-    list ? getListStatistics(list.id) : null,
-    [list, getListStatistics]
+    list ? getListProgress(list._id || list.id) : null,
+    [list, getListProgress]
   );
   
   // Extract all items from categories for export functionality
@@ -111,12 +111,12 @@ export function ListDetail({ listId }: ListDetailProps) {
         return;
       }
 
-      const categoryId = addCategory(listId, {
-        name: newCategoryName.trim(),
-        order: listCategories.length,
-        items: [],
-        collapsed: false
-      });
+      const categoryId = addCategory(
+        listId,
+        newCategoryName.trim(),
+        undefined, // color
+        undefined  // icon
+      );
 
       if (categoryId) {
         toast.success("Category added successfully");
