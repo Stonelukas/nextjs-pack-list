@@ -75,7 +75,7 @@ export default withSentryConfig(withBundleAnalyzer(nextConfig), {
 
   reactComponentAnnotation: {
     enabled: true,
-  }
+  },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   // This can increase your server load as well as your hosting bill.
