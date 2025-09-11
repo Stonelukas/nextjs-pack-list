@@ -42,7 +42,6 @@ next-env.d.ts
 
 /src/generated/prisma
 # Convex
-convex/_generated/
 .env.local
 
 # clerk configuration (can include secrets)
@@ -50,3 +49,5 @@ convex/_generated/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+/logs

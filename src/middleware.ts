@@ -7,5 +7,6 @@ export const config = {
   matcher: [
     // Match all paths - this ensures Clerk middleware runs on every route
     '/(.*)',
+    '(?!monitoring)', // Exclude Sentry monitoring route
   ],
 }

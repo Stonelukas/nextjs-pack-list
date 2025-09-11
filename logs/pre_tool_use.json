@@ -2374,5 +2374,149 @@
       "command": "vercel --prod --yes 2>&1",
       "description": "Deploy to Vercel with updated environment variables"
     }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la /home/stonelukas/testing/task-master-init/.next 2>/dev/null || echo \".next directory not found\"",
+      "description": "Check if .next build directory exists"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la /home/stonelukas/testing/task-master-init/.next/static/",
+      "description": "Check static assets in build directory"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la /home/stonelukas/testing/task-master-init/out 2>/dev/null || echo \"out directory not found\"",
+      "description": "Check if static export directory exists"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la /home/stonelukas/testing/task-master-init/.next/server/app/",
+      "description": "Check server-side build output"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "find /home/stonelukas/testing/task-master-init/.next -name \"*.map\" -type f | head -10",
+      "description": "Search for source map files in build output"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "rg --files /home/stonelukas/testing/task-master-init/.next | rg \"\\.map$\" | head -10",
+      "description": "Search for source map files using ripgrep"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la /home/stonelukas/testing/task-master-init/.next/static/chunks/*.js | head -5",
+      "description": "Check JavaScript files in chunks directory"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la /home/stonelukas/testing/task-master-init/.next/static/chunks/*.map 2>/dev/null | wc -l",
+      "description": "Count source map files in chunks directory"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "grep -r \"sourceMap\" /home/stonelukas/testing/task-master-init/next.config.ts /home/stonelukas/testing/task-master-init/tsconfig.json 2>/dev/null",
+      "description": "Check for source map configuration"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "rg \"sourceMap|sourcemap\" /home/stonelukas/testing/task-master-init/next.config.ts /home/stonelukas/testing/task-master-init/tsconfig.json",
+      "description": "Check for source map configuration using ripgrep"
+    }
+  },
+  {
+    "session_id": "06004248-42dd-4137-aa36-10e119bd9ebb",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/06004248-42dd-4137-aa36-10e119bd9ebb.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "NODE_ENV=production bun run build 2>&1 | rg -i \"source.*map\" | head -5",
+      "description": "Build in production mode and check for source map mentions"
+    }
+  },
+  {
+    "session_id": "462ff13a-feec-46a6-b1da-aad91742ec8e",
+    "transcript_path": "/home/stonelukas/.claude/projects/-home-stonelukas-testing-task-master-init/462ff13a-feec-46a6-b1da-aad91742ec8e.jsonl",
+    "cwd": "/home/stonelukas/testing/task-master-init",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la",
+      "description": "List directory contents"
+    }
   }
 ]

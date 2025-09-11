@@ -1,2 +1,4 @@
 [tools]
+"npm:@sentry/cli" = "latest"
+"npm:snyk" = "latest"
 "npm:vercel" = "latest"
