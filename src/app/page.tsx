@@ -30,7 +30,7 @@ export default function Home() {
               Smart Packing List Tracker
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Never forget anything again. Create, organize, and track your packing lists 
+              Never forget anything again. Create, organize, and track your packing lists
               with ease. Access your lists from anywhere with cloud sync.
             </p>
             <div className="flex gap-4 justify-center">
@@ -116,8 +116,11 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <ListOverview />
-    </div>
+    <PlausibleProvider domain="packlistapp.com">
+      <h1>Packlist App</h1>
+      <div className="container mx-auto px-4 py-8">
+        <ListOverview />
+      </div>
+    </PlausibleProvider>
   );
 }

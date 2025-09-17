@@ -24,6 +24,7 @@ import { WebVitalsReporter } from "./web-vitals";
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
 import { VercelDebug } from '@/components/debug/vercel-debug';
+import PlausibleProvider from "next-plausible";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -87,39 +88,41 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body className={inter.className}>
-          <ConvexProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <DevelopmentProvider>
-                <AuthProvider>
-                  <QueryProvider>
-                    <SkipNav />
-                    <WebVitalsReporter />
-                    <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
-                    <Analytics debug={process.env.NODE_ENV === 'development'} />
-                    <VercelDebug />
-                    <ErrorBoundary>
-                      <Header />
-                      <NavigationLayout>
-                        {children}
-                      </NavigationLayout>
-                    </ErrorBoundary>
-                    <MobileNav />
-                    <Toaster />
-                  </QueryProvider>
-                </AuthProvider>
-              </DevelopmentProvider>
-            </ThemeProvider>
-          </ConvexProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <PlausibleProvider domain="packlistapp.com">
+          <ClerkProvider>
+            <ConvexProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <DevelopmentProvider>
+                  <AuthProvider>
+                    <QueryProvider>
+                      <SkipNav />
+                      <WebVitalsReporter />
+                      <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
+                      <Analytics debug={process.env.NODE_ENV === 'development'} />
+                      <VercelDebug />
+                      <ErrorBoundary>
+                        <Header />
+                        <NavigationLayout>
+                          {children}
+                        </NavigationLayout>
+                      </ErrorBoundary>
+                      <MobileNav />
+                      <Toaster />
+                    </QueryProvider>
+                  </AuthProvider>
+                </DevelopmentProvider>
+              </ThemeProvider>
+            </ConvexProvider>
+          </ClerkProvider>
+        </PlausibleProvider>
+      </body>
+    </html>
   );
 }
