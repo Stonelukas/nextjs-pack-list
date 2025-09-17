@@ -88,41 +88,41 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <PlausibleProvider domain="packlistapp.com">
-          <ClerkProvider>
-            <ConvexProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                <DevelopmentProvider>
-                  <AuthProvider>
-                    <QueryProvider>
-                      <SkipNav />
-                      <WebVitalsReporter />
-                      <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
-                      <Analytics debug={process.env.NODE_ENV === 'development'} />
-                      <VercelDebug />
-                      <ErrorBoundary>
-                        <Header />
-                        <NavigationLayout>
-                          {children}
-                        </NavigationLayout>
-                      </ErrorBoundary>
-                      <MobileNav />
-                      <Toaster />
-                    </QueryProvider>
-                  </AuthProvider>
-                </DevelopmentProvider>
-              </ThemeProvider>
-            </ConvexProvider>
-          </ClerkProvider>
-        </PlausibleProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={inter.className}>
+          <PlausibleProvider domain="packlistapp.com">
+              <ConvexProvider>
+                <ThemeProvider
+                  attribute="class"
+                  defaultTheme="system"
+                  enableSystem
+                  disableTransitionOnChange
+                >
+                  <DevelopmentProvider>
+                    <AuthProvider>
+                      <QueryProvider>
+                        <SkipNav />
+                        <WebVitalsReporter />
+                        <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
+                        <Analytics debug={process.env.NODE_ENV === 'development'} />
+                        <VercelDebug />
+                        <ErrorBoundary>
+                          <Header />
+                          <NavigationLayout>
+                            {children}
+                          </NavigationLayout>
+                        </ErrorBoundary>
+                        <MobileNav />
+                        <Toaster />
+                      </QueryProvider>
+                    </AuthProvider>
+                  </DevelopmentProvider>
+                </ThemeProvider>
+              </ConvexProvider>
+          </PlausibleProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

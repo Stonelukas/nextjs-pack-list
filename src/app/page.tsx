@@ -116,11 +116,8 @@ export default function Home() {
   }
 
   return (
-    <PlausibleProvider domain="packlistapp.com">
-      <h1>Packlist App</h1>
-      <div className="container mx-auto px-4 py-8">
-        <ListOverview />
-      </div>
-    </PlausibleProvider>
+    <div className="container mx-auto px-4 py-8">
+      <ListOverview />
+    </div>
   );
 }
