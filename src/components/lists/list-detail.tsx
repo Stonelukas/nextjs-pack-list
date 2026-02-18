@@ -102,6 +102,23 @@ export function ListDetail({ listId }: ListDetailProps) {
     [listCategories]
   );
 
+  const isAllItemsPacked = useMemo(() => {
+    if (!stats || stats.totalItems === 0) return false;
+    return stats.packedItems === stats.totalItems;
+  }, [stats]);
+
+  useEffect(() => {
+    if (!list || list.completedAt) return;
+
+    const currentlyAllPacked = isAllItemsPacked && stats && stats.totalItems > 0;
+
+    if (currentlyAllPacked && !previouslyAllPacked.current) {
+      setShowCompletionDialog(true);
+    }
+
+    previouslyAllPacked.current = currentlyAllPacked;
+  }, [isAllItemsPacked, stats, list]);
+
   // Debounced category name input for better performance
   const debouncedSetCategoryName = useCallback(
     debounce((value: string) => {
@@ -206,12 +223,6 @@ export function ListDetail({ listId }: ListDetailProps) {
     toast.success("List refreshed");
   };
 
-  // Check if all items are packed
-  const isAllItemsPacked = useMemo(() => {
-    if (!stats || stats.totalItems === 0) return false;
-    return stats.packedItems === stats.totalItems;
-  }, [stats]);
-
   // Handle manual completion toggle
   const handleToggleCompletion = async () => {
     if (!list) return;
@@ -228,20 +239,6 @@ export function ListDetail({ listId }: ListDetailProps) {
     await markListCompleted(listId);
     setShowCompletionDialog(false);
   };
-
-  // Watch for auto-completion when all items are packed
-  useEffect(() => {
-    if (!list || list.completedAt) return; // Don't show dialog if already completed
-
-    const currentlyAllPacked = isAllItemsPacked && stats && stats.totalItems > 0;
-
-    // Show dialog only when transitioning from not-all-packed to all-packed
-    if (currentlyAllPacked && !previouslyAllPacked.current) {
-      setShowCompletionDialog(true);
-    }
-
-    previouslyAllPacked.current = currentlyAllPacked;
-  }, [isAllItemsPacked, stats, list]);
 
   const mainContent = (
     <div className="space-y-6">

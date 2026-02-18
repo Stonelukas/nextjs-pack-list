@@ -190,20 +190,21 @@ export function Sidebar({ className }: SidebarProps) {
     },
   ];
 
-  // Apply role-based filtering to navigation sections
+  // Apply role-based filtering to all nav items at once (hooks can't be called inside .map)
+  const allNavItems = navSections.flatMap(section => section.items);
+  const allFilteredItems = useFilteredNavigation(allNavItems);
+  const filteredHrefs = new Set(allFilteredItems.map(item => item.href));
+
   const filteredSections = navSections
     .map(section => {
-      // Filter section items
-      const filteredItems = useFilteredNavigation(section.items);
-      
-      // Only show section if it has visible items and user has required permissions
+      const filteredItems = section.items.filter(item => filteredHrefs.has(item.href));
+
       if (filteredItems.length === 0) return null;
-      
-      // Check section-level permissions
+
       if (section.requiredPermissions) {
         if (!hasAllPermissions(section.requiredPermissions)) return null;
       }
-      
+
       return {
         ...section,
         items: filteredItems,

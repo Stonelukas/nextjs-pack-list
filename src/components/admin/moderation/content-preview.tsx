@@ -45,16 +45,14 @@ interface ContentPreviewProps {
 
 export function ContentPreview({ item, open, onOpenChange }: ContentPreviewProps) {
   // Fetch moderation history for the item
-  const moderationHistory = item ? useQuery(api.moderation.getModerationHistory, {
-    contentId: item.id,
-    contentType: item.type,
-  }) : undefined;
+  const moderationHistory = useQuery(api.moderation.getModerationHistory,
+    item ? { contentId: item.id, contentType: item.type } : "skip"
+  );
 
   // Fetch automated flags for the content
-  const automatedFlags = item ? useQuery(api.moderation.getAutomatedFlags, {
-    content: JSON.stringify(item.content),
-    contentType: item.type,
-  }) : undefined;
+  const automatedFlags = useQuery(api.moderation.getAutomatedFlags,
+    item ? { content: JSON.stringify(item.content), contentType: item.type } : "skip"
+  );
 
   if (!item) {
     return null;
