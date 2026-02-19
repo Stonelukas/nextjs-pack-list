@@ -53,7 +53,7 @@
     "framer-motion": "^12.23.24",
     "html-to-image": "^1.11.13",
     "immer": "^10.1.1",
-    "jspdf": "^3.0.2",
+    "jspdf": "^4.1.0",
     "lucide-react": "^0.546.0",
     "next": "15.5.9",
     "next-plausible": "^3.12.4",
