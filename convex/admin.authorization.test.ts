@@ -290,6 +290,28 @@ describe("admin-only APIs", () => {
     ).resolves.toBeTypeOf("object");
   });
 
+  it("does not count legacy template rows as active-user lists", async () => {
+    const t = createTestBackend();
+    const { userId } = await seedAdminFixture(t);
+    await t.run((ctx) =>
+      ctx.db.insert("lists", {
+        userId,
+        name: "Legacy template row",
+        isTemplate: true,
+      }),
+    );
+
+    const stats = await t
+      .withIdentity({ subject: "admin-user" })
+      .query(api.users.getUserStats, {});
+
+    expect(stats).toMatchObject({
+      totalUsers: 2,
+      activeUsers: 0,
+      inactiveUsers: 2,
+    });
+  });
+
   it("returns the authoritative updated user to administrator editors", async () => {
     const t = createTestBackend();
     const { userId } = await seedAdminFixture(t);

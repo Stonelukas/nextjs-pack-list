@@ -6,10 +6,22 @@ import userEvent from "@testing-library/user-event";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const preferenceState = vi.hoisted(() => ({
+  preferences: {
+    theme: "system",
+    defaultPriority: "essential" as "essential" | "high" | "medium" | "low",
+    autoSave: true,
+  } as
+    | {
+        theme: string;
+        defaultPriority: "essential" | "high" | "medium" | "low";
+        autoSave: boolean;
+      }
+    | undefined,
+}));
+
 vi.mock("@/features/settings/hooks/use-preferences", () => ({
-  usePreferences: () => ({
-    preferences: { theme: "system", defaultPriority: "essential", autoSave: true },
-  }),
+  usePreferences: () => preferenceState,
 }));
 
 import { QuickAddItemDialog } from "./quick-add-item-dialog";
@@ -28,6 +40,11 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  preferenceState.preferences = {
+    theme: "system",
+    defaultPriority: "essential",
+    autoSave: true,
+  };
   Object.defineProperties(HTMLElement.prototype, {
     hasPointerCapture: { configurable: true, value: () => false },
     releasePointerCapture: { configurable: true, value: () => undefined },
@@ -50,6 +67,49 @@ describe("QuickAddItemDialog", () => {
     );
 
     expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent("Essential");
+  });
+
+  it("adopts a late default while pristine without replacing a chosen priority", async () => {
+    const user = userEvent.setup();
+    preferenceState.preferences = undefined;
+    const view = () => (
+      <QuickAddItemDialog
+        open
+        onOpenChange={vi.fn()}
+        categories={categories}
+        onAddItem={vi.fn()}
+      />
+    );
+    const { rerender } = render(view());
+
+    expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent(
+      "Medium",
+    );
+
+    preferenceState.preferences = {
+      theme: "system",
+      defaultPriority: "high",
+      autoSave: true,
+    };
+    rerender(view());
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent(
+        "High",
+      ),
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Priority" }));
+    await user.click(screen.getByRole("option", { name: "Low" }));
+    preferenceState.preferences = {
+      theme: "system",
+      defaultPriority: "essential",
+      autoSave: true,
+    };
+    rerender(view());
+
+    expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent(
+      "Low",
+    );
   });
 
   it("allows only one quick-add submission while the first mutation is pending", async () => {

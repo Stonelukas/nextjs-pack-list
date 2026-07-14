@@ -313,7 +313,10 @@ export const getUserStats = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const users = await ctx.db.query("users").collect();
-    const lists = await ctx.db.query("lists").collect();
+    const lists = await ctx.db
+      .query("lists")
+      .withIndex("by_template", (q) => q.eq("isTemplate", false))
+      .collect();
     const activeUsers = users.filter((user) =>
       lists.some((list) => list.userId === user._id),
     ).length;
