@@ -79,4 +79,72 @@ describe("UserEditForm", () => {
     );
     expect(onSuccess).toHaveBeenCalledWith(updatedUser);
   });
+
+  it("resets displayed and submitted values when the selected user changes", async () => {
+    const user = userEvent.setup();
+    const commonProps = {
+      open: true,
+      onOpenChange: vi.fn(),
+      onSuccess: vi.fn(),
+    };
+    const { rerender } = render(
+      <UserEditForm
+        {...commonProps}
+        user={{
+          _id: "user-1" as never,
+          clerkId: "clerk-1",
+          name: "Avery Stone",
+          email: "avery@example.com",
+          preferences: {
+            theme: "system",
+            defaultPriority: "essential",
+            autoSave: true,
+          },
+        }}
+      />,
+    );
+
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "Unsaved Avery");
+
+    rerender(
+      <UserEditForm
+        {...commonProps}
+        user={{
+          _id: "user-2" as never,
+          clerkId: "clerk-2",
+          name: "Blake Rivers",
+          email: "blake@example.com",
+          preferences: {
+            theme: "dark",
+            defaultPriority: "high",
+            autoSave: false,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Blake Rivers");
+    expect(screen.getByLabelText("Email")).toHaveValue("blake@example.com");
+    expect(screen.getByRole("combobox", { name: "Default Priority" })).toHaveTextContent(
+      "High",
+    );
+
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(updateUser).toHaveBeenCalledWith({
+        userId: "user-2",
+        updates: {
+          name: "Blake Rivers",
+          email: "blake@example.com",
+          preferences: {
+            theme: "dark",
+            defaultPriority: "high",
+            autoSave: false,
+          },
+        },
+      }),
+    );
+  });
 });

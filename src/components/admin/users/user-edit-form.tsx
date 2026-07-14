@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -72,23 +72,40 @@ interface UserEditFormProps {
   onSuccess?: (updatedUser: AdminUserUpdateResult) => void;
 }
 
+function getUserEditFormValues(user: User): UserEditFormData {
+  return {
+    name: user.name,
+    email: user.email || "",
+    preferences: {
+      theme:
+        (user.preferences?.theme as UserEditFormData["preferences"]["theme"]) ||
+        "system",
+      defaultPriority:
+        (user.preferences
+          ?.defaultPriority as UserEditFormData["preferences"]["defaultPriority"]) ||
+        "medium",
+      autoSave: user.preferences?.autoSave ?? true,
+    },
+  };
+}
+
 export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFormProps) {
   const { online } = useOnlineStatus();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const updateUser = useMutation(api.users.updateUser);
+  const userValues = useMemo(
+    () => getUserEditFormValues(user),
+    [user],
+  );
 
   const form = useForm<UserEditFormData>({
     resolver: zodResolver(userEditSchema),
-    defaultValues: {
-      name: user.name,
-      email: user.email || "",
-      preferences: {
-        theme: (user.preferences?.theme as "light" | "dark" | "system") || "system",
-        defaultPriority: (user.preferences?.defaultPriority as UserEditFormData["preferences"]["defaultPriority"]) || "medium",
-        autoSave: user.preferences?.autoSave ?? true,
-      },
-    },
+    defaultValues: userValues,
   });
+
+  useEffect(() => {
+    form.reset(userValues);
+  }, [form, userValues]);
 
   const onSubmit = async (data: UserEditFormData) => {
     if (!online) {
@@ -185,7 +202,7 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Theme Preference</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select theme" />
@@ -208,7 +225,7 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Default Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger aria-label="Default Priority">
                             <SelectValue placeholder="Select default priority" />
