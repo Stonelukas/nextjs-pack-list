@@ -1,28 +1,46 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  createMemoryRouter,
+  MemoryRouter,
+  Route,
+  RouterProvider,
+  Routes,
+} from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const listDetailProps = vi.hoisted(() => vi.fn());
 const routeListState = vi.hoisted(() => ({
   requestedId: "" as string | undefined,
   list: undefined as undefined | { _id: string; name: string },
+  listsById: {} as Record<string, { _id: string; name: string }>,
   loading: false,
 }));
 
 vi.mock("@/components/lists/list-detail", () => ({
   ListDetail: (props: { list: { _id: string; name: string } }) => {
     listDetailProps(props);
-    return <p>Detail component</p>;
+    return (
+      <>
+        <p>Detail component</p>
+        <input
+          aria-label="Template name"
+          defaultValue={`${props.list.name} Template`}
+        />
+      </>
+    );
   },
 }));
 vi.mock("@/features/lists/hooks/use-list", () => ({
   useList: () => ({ list: undefined, loading: false }),
   useRouteList: (id?: string) => {
     routeListState.requestedId = id;
-    return { list: routeListState.list, loading: routeListState.loading };
+    return {
+      list: (id && routeListState.listsById[id]) ?? routeListState.list,
+      loading: routeListState.loading,
+    };
   },
 }));
 vi.mock("@/features/lists/hooks/use-list-actions", () => ({
@@ -45,6 +63,7 @@ afterEach(() => {
   listDetailProps.mockClear();
   routeListState.requestedId = undefined;
   routeListState.list = undefined;
+  routeListState.listsById = {};
   routeListState.loading = false;
 });
 
@@ -74,6 +93,31 @@ describe("list feature pages", () => {
 
     expect(routeListState.requestedId).toBe("list-abc");
     expect(listDetailProps).toHaveBeenCalledWith({ list: routeListState.list });
+  });
+
+  it("remounts list-derived detail state when navigating between list ids", async () => {
+    routeListState.listsById = {
+      "list-a": { _id: "normalized-a", name: "Alpine" },
+      "list-b": { _id: "normalized-b", name: "Beach" },
+    };
+    const router = createMemoryRouter(
+      [{ path: "/lists/:id", element: <ListDetailPage /> }],
+      { initialEntries: ["/lists/list-a"] },
+    );
+    render(<RouterProvider router={router} />);
+
+    const templateName = screen.getByRole("textbox", { name: "Template name" });
+    expect(templateName).toHaveValue("Alpine Template");
+    fireEvent.change(templateName, { target: { value: "Unsaved Alpine draft" } });
+    expect(templateName).toHaveValue("Unsaved Alpine draft");
+
+    await router.navigate("/lists/list-b");
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Template name" })).toHaveValue(
+        "Beach Template",
+      );
+    });
   });
 
   it.each([

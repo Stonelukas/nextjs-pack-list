@@ -16,7 +16,7 @@ export function ListDetailPage() {
       <Button asChild variant="ghost" size="sm" className="mb-4">
         <Link to="/lists"><ArrowLeft aria-hidden="true" />Back to route ledger</Link>
       </Button>
-      <ListDetail list={list} />
+      <ListDetail key={list._id} list={list} />
     </div>
   );
 }

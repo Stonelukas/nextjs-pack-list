@@ -80,6 +80,7 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 - Navigation and breadcrumbs derive from React Router. The header uses one-line branding; desktop navigation groups Lists, Organize, Recent, and Settings; mobile destinations retain the same permissions and 44-pixel targets with soft active surfaces.
 - `ListOverview` keeps its typed summary hook, URL status filter, search/sort/view state, import/create actions, grid/empty states, and pagination. Its composition is `My packing lists` → quick-start templates → accessible definition-list stat tiles → adjacent collection toolbar → cards/load-more, including load-more when the loaded filtered page is empty.
 - `ListCard` preserves its overlay link, IDs, progress, tags, actions, errors, and delete dialog while using shared friendly card elevation and the presentation label `Completed`.
+- The `/lists/:id` page keys its detail subtree by the authoritative list ID so same-route navigation between cached lists remounts list-derived dialogs, drafts, guards, and completion refs.
 - `src/store/navigation-store.ts` persists presentation preferences only.
 
 ## One-time legacy browser-data import
@@ -169,7 +170,7 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 
 **Files:** `src/test/`, `e2e/`, `playwright.config.ts`, `vitest.config.ts`, Convex `*.test.ts` files, `.github/workflows/ci.yml`.
 
-- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 382 tests across 88 files.
+- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 383 tests across 88 files.
 - `convex-test` verifies actual server authorization, webhook, migration, deletion batching, pagination, aggregate, domain behavior, and deployable module paths. The current full Convex gate passes 143 tests across eight files.
 - Playwright runs 37 desktop/mobile Chromium journeys through the existing server-only flagged Vite e2e boundary with two workers and zero retries. Clock-controlled auth readiness coverage keeps the complete landing visible through the real ten-second timeout and Retry, while responsive coverage proves landing/auth/dashboard geometry and 44px primary targets at 390×844.
 - Production-build contracts prevent test aliases from entering normal bundles.
