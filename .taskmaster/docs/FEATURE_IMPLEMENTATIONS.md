@@ -54,6 +54,7 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 - The Convex auth provider requires an exact HTTPS issuer and application ID `convex`.
 - `/clerk-webhook` verifies Svix headers and raw-body signature in Convex.
 - `user.created`, `user.updated`, and `user.deleted` dispatch to internal mutations.
+- Created and updated users synchronize Clerk's `primary_email_address_id` match, falling back to the first address only when Clerk does not provide a matching primary entry.
 - Only verified `public_metadata.role: "admin"` grants administrator access.
 
 ## Typed feature hooks
@@ -143,6 +144,7 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 - `getPublicTemplateSummaries` and `getOwnedTemplateSummaries` paginate at no more than 50 records and return explicit public-safe metadata plus denormalized `categoryCount`/`itemCount` without nested children or `createdBy` identifiers. Ownership is represented by `isOwned` on the authorized owned feed.
 - `getTemplate({ templateId })` is the separate bounded detail path. Anonymous private and missing IDs both return `NOT_FOUND`; authenticated private access resolves the current user before the protected lookup. Canonical children come from `templateCategories` and `templateItems`, with bounded compatibility for older name-only item records.
 - Public detail is resolved before optional ownership lookup, so an anonymous visitor or a signed-in Clerk identity without a provisioned Convex user row can read it. Private detail still requires the persisted owner and rejects foreign access.
+- Public previews remain available during signed-in account setup, but applying a template is disabled until `ConvexUserBootstrap` is ready; setup failures expose their mapped message and retry action without dispatching the mutation.
 - User-created and imported templates enforce the same field normalization as lists, at most 50 categories, 200 items per category, 1,000 total items, and 20 public templates per owner. Public quota validation runs before source child reads, and source items are accumulated sequentially only to the aggregate limit.
 - Create, apply, legacy import, and official seed paths use canonical template tables and persist summary counts. A bounded internal metadata backfill repairs older count-less rows and rebuilds global template aggregates. Applying a template revalidates bounded detail before creating the destination list.
 - The internal official seed owns one merged nine-template catalog: the primary Next.js definitions win for overlapping Beach Vacation, Business Trip, and Camping Adventure records; Weekend Getaway and International Travel supplement the seven primary definitions. A fresh deployment receives 9 templates, 39 categories, and 264 items. Reruns match official names and insert no duplicates.
@@ -172,7 +174,7 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 
 **Files:** `src/test/`, `e2e/`, `playwright.config.ts`, `vitest.config.ts`, Convex `*.test.ts` files, `.github/workflows/ci.yml`.
 
-- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 384 tests across 89 files.
+- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 385 tests across 89 files.
 - `convex-test` verifies actual server authorization, webhook, migration, deletion batching, pagination, aggregate, domain behavior, and deployable module paths. The current full Convex gate passes 144 tests across eight files.
 - Playwright runs 37 desktop/mobile Chromium journeys through the existing server-only flagged Vite e2e boundary with two workers and zero retries. Clock-controlled auth readiness coverage keeps the complete landing visible through the real ten-second timeout and Retry, while responsive coverage proves landing/auth/dashboard geometry and 44px primary targets at 390×844.
 - Production-build contracts prevent test aliases from entering normal bundles.

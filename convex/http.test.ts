@@ -60,7 +60,11 @@ describe("Clerk webhook", () => {
         id: "clerk-admin",
         first_name: "Signed",
         last_name: "Admin",
-        email_addresses: [{ email_address: "admin@example.com" }],
+        primary_email_address_id: "email-primary",
+        email_addresses: [
+          { id: "email-secondary", email_address: "secondary@example.com" },
+          { id: "email-primary", email_address: "admin@example.com" },
+        ],
         image_url: "https://example.com/admin.png",
         public_metadata: { role: "admin" },
       },

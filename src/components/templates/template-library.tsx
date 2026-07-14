@@ -5,6 +5,7 @@ import { Grid3x3, List, Package, Search, X } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { useConvexUserBootstrap } from "@/app/guards/convex-user-bootstrap";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Section } from "@/components/layout/section";
@@ -30,6 +31,7 @@ export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibrar
   const navigate = useNavigate();
   const location = useLocation();
   const { isSignedIn } = useUser();
+  const bootstrap = useConvexUserBootstrap();
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     applyTemplate,
@@ -71,6 +73,7 @@ export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibrar
       navigate(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
       return;
     }
+    if (bootstrap.status !== "ready") return;
     const listId = await applyTemplate({ templateId: template._id, listName }, { rethrow: true });
     if (!listId) return;
     toast.success(`Created “${listName}” from template`);
@@ -85,6 +88,18 @@ export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibrar
     setSearchParams({});
   };
   const active = Boolean(search || category !== "all" || difficulty !== "all" || season !== "all" || filter !== "all");
+  const useAvailability =
+    isSignedIn && bootstrap.status !== "ready"
+      ? {
+          disabled: true,
+          message:
+            bootstrap.status === "error"
+              ? (bootstrap.error?.message ?? "Account setup is unavailable.")
+              : "Preparing your account…",
+          onRetry:
+            bootstrap.status === "error" ? bootstrap.retry : undefined,
+        }
+      : undefined;
 
   if (loading) return <p className="py-20 text-center text-muted-foreground">Loading route templates…</p>;
 
@@ -143,6 +158,7 @@ export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibrar
         isOpen={Boolean(preview)}
         onClose={closePreview}
         onUse={useTemplate}
+        useAvailability={useAvailability}
       />
     </div>
   );

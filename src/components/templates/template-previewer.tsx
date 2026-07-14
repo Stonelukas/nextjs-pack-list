@@ -38,11 +38,16 @@ interface TemplatePreviewerProps {
   isOpen: boolean;
   onClose: () => void;
   onUse: (template: TemplateSummary, listName: string) => void | Promise<void>;
+  useAvailability?: {
+    disabled: boolean;
+    message: string;
+    onRetry?: () => void;
+  };
 }
 
 type TemplatePreviewerContentProps = Pick<
   TemplatePreviewerProps,
-  "isOpen" | "onClose" | "onUse"
+  "isOpen" | "onClose" | "onUse" | "useAvailability"
 > & {
   template: TemplateWithCategories;
 };
@@ -52,6 +57,7 @@ function TemplatePreviewerContent({
   isOpen,
   onClose,
   onUse,
+  useAvailability,
 }: TemplatePreviewerContentProps) {
   const [creating, setCreating] = useState(false);
   const [listName, setListName] = useState("");
@@ -126,6 +132,25 @@ function TemplatePreviewerContent({
               {submitError}
             </p>
           ) : null}
+          {useAvailability?.disabled ? (
+            <div
+              id="template-use-unavailable"
+              role="status"
+              className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
+            >
+              <span>{useAvailability.message}</span>
+              {useAvailability.onRetry ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={useAvailability.onRetry}
+                >
+                  Retry account setup
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           <DialogFooter>
             <Button
               variant="outline"
@@ -138,7 +163,16 @@ function TemplatePreviewerContent({
             >
               Back
             </Button>
-            <Button disabled={submitting} aria-busy={submitting} onClick={() => void confirmCreate()}>
+            <Button
+              disabled={submitting || useAvailability?.disabled}
+              aria-busy={submitting}
+              aria-describedby={
+                useAvailability?.disabled
+                  ? "template-use-unavailable"
+                  : undefined
+              }
+              onClick={() => void confirmCreate()}
+            >
               <Plus className="mr-1 h-4 w-4" />
               {submitting ? "Creating list…" : "Create list"}
             </Button>
@@ -183,15 +217,42 @@ function TemplatePreviewerContent({
             ))}
           </div>
         </ScrollArea>
+        {useAvailability?.disabled ? (
+          <div
+            id="template-use-unavailable"
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
+          >
+            <span>{useAvailability.message}</span>
+            {useAvailability.onRetry ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={useAvailability.onRetry}
+              >
+                Retry account setup
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         <DialogFooter className="justify-between">
           <TemplateManager template={template} />
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleClose}>Close</Button>
-            <Button onClick={() => {
-              setSubmitError(null);
-              setListName(template.name);
-              setCreating(true);
-            }}>
+            <Button
+              disabled={useAvailability?.disabled}
+              aria-describedby={
+                useAvailability?.disabled
+                  ? "template-use-unavailable"
+                  : undefined
+              }
+              onClick={() => {
+                setSubmitError(null);
+                setListName(template.name);
+                setCreating(true);
+              }}
+            >
               <Plus className="mr-1 h-4 w-4" />Use template
             </Button>
           </div>
@@ -228,6 +289,7 @@ export function TemplatePreviewer(props: TemplatePreviewerProps) {
       onClose={props.onClose}
       onUse={props.onUse}
       template={props.template}
+      useAvailability={props.useAvailability}
     />
   );
 }

@@ -9,6 +9,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const applyTemplate = vi.hoisted(() => vi.fn());
 const loadMore = vi.hoisted(() => vi.fn());
 const auth = vi.hoisted(() => ({ isSignedIn: false }));
+const bootstrap = vi.hoisted(() => ({
+  status: "idle" as "idle" | "loading" | "ready" | "error",
+  error: null as null | { message: string },
+  retry: vi.fn(),
+}));
 const template = {
   _id: "template-public",
   _creationTime: 1,
@@ -20,6 +25,9 @@ const template = {
 };
 
 vi.mock("@clerk/clerk-react", () => ({ useUser: () => auth }));
+vi.mock("@/app/guards/convex-user-bootstrap", () => ({
+  useConvexUserBootstrap: () => bootstrap,
+}));
 vi.mock("convex/react", () => ({ useQuery: () => null }));
 vi.mock("../../../convex/_generated/api", () => ({
   api: { users: { getCurrentUser: Symbol("getCurrentUser") } },
@@ -44,8 +52,40 @@ vi.mock("./template-card", () => ({
   ),
 }));
 vi.mock("./template-previewer", () => ({
-  TemplatePreviewer: ({ template: selected, onUse }: { template: typeof template | null; onUse: (value: typeof template, name: string) => void }) =>
-    selected ? <button type="button" onClick={() => void onUse(selected, "Weekend copy")}>Create from preview</button> : null,
+  TemplatePreviewer: ({
+    isOpen,
+    template: selected,
+    onUse,
+    useAvailability,
+  }: {
+    isOpen: boolean;
+    template: typeof template | null;
+    onUse: (value: typeof template, name: string) => void;
+    useAvailability?: {
+      disabled: boolean;
+      message: string;
+      onRetry?: () => void;
+    };
+  }) =>
+    isOpen && selected ? (
+      <>
+        <button
+          type="button"
+          disabled={useAvailability?.disabled}
+          onClick={() => void onUse(selected, "Weekend copy")}
+        >
+          Create from preview
+        </button>
+        {useAvailability?.disabled ? (
+          <p role="status">{useAvailability.message}</p>
+        ) : null}
+        {useAvailability?.onRetry ? (
+          <button type="button" onClick={useAvailability.onRetry}>
+            Retry account setup
+          </button>
+        ) : null}
+      </>
+    ) : null,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
@@ -61,6 +101,9 @@ afterEach(() => {
   applyTemplate.mockReset();
   loadMore.mockReset();
   auth.isSignedIn = false;
+  bootstrap.status = "idle";
+  bootstrap.error = null;
+  bootstrap.retry.mockReset();
 });
 
 describe("TemplateLibrary guest actions", () => {
@@ -95,5 +138,44 @@ describe("TemplateLibrary guest actions", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(
       "/sign-in?redirect_url=%2Ftemplates",
     );
+  });
+
+  it("waits for account bootstrap and offers retry before applying a template", async () => {
+    const user = userEvent.setup();
+    auth.isSignedIn = true;
+    bootstrap.status = "loading";
+    applyTemplate.mockResolvedValue("list-1");
+    const onTemplateCreated = vi.fn();
+    const view = () => (
+      <MemoryRouter initialEntries={["/templates"]}>
+        <TemplateLibrary onTemplateCreated={onTemplateCreated} />
+      </MemoryRouter>
+    );
+    const { rerender } = render(view());
+
+    await user.click(screen.getByRole("button", { name: "Use public template" }));
+    expect(
+      screen.getByRole("button", { name: "Create from preview" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Preparing your account",
+    );
+    expect(applyTemplate).not.toHaveBeenCalled();
+
+    bootstrap.status = "error";
+    bootstrap.error = { message: "Account setup failed." };
+    rerender(view());
+    await user.click(screen.getByRole("button", { name: "Retry account setup" }));
+    expect(bootstrap.retry).toHaveBeenCalledTimes(1);
+
+    bootstrap.status = "ready";
+    bootstrap.error = null;
+    rerender(view());
+    await user.click(screen.getByRole("button", { name: "Create from preview" }));
+    expect(applyTemplate).toHaveBeenCalledWith(
+      { templateId: "template-public", listName: "Weekend copy" },
+      { rethrow: true },
+    );
+    expect(onTemplateCreated).toHaveBeenCalledWith("list-1");
   });
 });

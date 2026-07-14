@@ -7,7 +7,8 @@ type ClerkUserData = {
   id?: string;
   first_name?: string | null;
   last_name?: string | null;
-  email_addresses?: Array<{ email_address?: string }>;
+  primary_email_address_id?: string | null;
+  email_addresses?: Array<{ id?: string; email_address?: string }>;
   image_url?: string;
   public_metadata?: { role?: unknown };
 };
@@ -37,10 +38,13 @@ function parseClerkEvent(value: unknown): ClerkWebhookEvent {
 function mapClerkUser(data: ClerkUserData) {
   if (!data.id) throw new Error("Clerk user event is missing an id");
   const fullName = `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim();
+  const primaryEmail = data.email_addresses?.find(
+    (email) => email.id === data.primary_email_address_id,
+  )?.email_address;
   return {
     clerkId: data.id,
     name: fullName || "Anonymous User",
-    email: data.email_addresses?.[0]?.email_address,
+    email: primaryEmail ?? data.email_addresses?.[0]?.email_address,
     imageUrl: data.image_url,
     role: data.public_metadata?.role === "admin" ? ("admin" as const) : ("user" as const),
   };
