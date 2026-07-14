@@ -288,6 +288,24 @@ describe("bounded template visibility and ownership", () => {
     );
   });
 
+  it("allows a signed-in identity without a local user row to read public detail", async () => {
+    const t = createTestBackend();
+    const fixture = await seedTemplateFixture(t);
+
+    const publicDetail = await t
+      .withIdentity({ subject: "not-yet-provisioned" })
+      .query(api.templates.getTemplate, {
+        templateId: fixture.publicTemplate,
+      });
+
+    expect(publicDetail).toMatchObject({
+      _id: fixture.publicTemplate,
+      name: "Public",
+      isPublic: true,
+      isOwned: false,
+    });
+  });
+
   it("does not reveal private template existence to anonymous callers", async () => {
     const t = createTestBackend();
     const fixture = await seedTemplateFixture(t);

@@ -21,7 +21,7 @@ bun run test:convex
 
 - [x] `bun run check` passes lint, strict typecheck, 384 client Vitest tests across 89 files, and build.
 - [x] ESLint exits with zero errors and 20 recorded warnings; warnings are not described as ignored application errors.
-- [x] `bun run test:convex` passes 138 authorization, webhook, migration, and domain tests across seven files.
+- [x] `bun run test:convex` passes 144 authorization, webhook, migration, and domain tests across eight files.
 - [x] The existing >500 kB chunk advisory is recorded without claiming an unmeasured bundle target.
 
 ## Playwright

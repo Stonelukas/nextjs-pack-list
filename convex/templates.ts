@@ -223,16 +223,44 @@ async function getAuthorizedTemplate(
   templateId: Id<"templates">,
   authenticatedUser?: Doc<"users">,
 ) {
+  const template = await ctx.db.get(templateId);
+  if (!template) {
+    throw domainError("NOT_FOUND", "Template was not found");
+  }
+
+  if (template.isPublic === true) {
+    if (authenticatedUser) {
+      return {
+        template,
+        isOwned: template.createdBy === authenticatedUser._id,
+      };
+    }
+
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || !template.createdBy) {
+      return { template, isOwned: false };
+    }
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (query) =>
+        query.eq("clerkId", identity.subject),
+      )
+      .take(2);
+    return {
+      template,
+      isOwned: users.length === 1 && template.createdBy === users[0]._id,
+    };
+  }
+
   const identity = await ctx.auth.getUserIdentity();
   const user = identity
     ? (authenticatedUser ?? (await requireCurrentUser(ctx)))
     : null;
-  const template = await ctx.db.get(templateId);
-  if (!template || (template.isPublic !== true && !user)) {
+  if (!user) {
     throw domainError("NOT_FOUND", "Template was not found");
   }
-  const isOwned = user !== null && template.createdBy === user._id;
-  if (template.isPublic !== true && !isOwned) {
+  const isOwned = template.createdBy === user._id;
+  if (!isOwned) {
     throw domainError("FORBIDDEN", "You cannot access this template");
   }
   return { template, isOwned };
