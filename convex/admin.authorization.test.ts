@@ -312,6 +312,26 @@ describe("admin-only APIs", () => {
     });
   });
 
+  it("does not expose legacy template rows as user activity", async () => {
+    const t = createTestBackend();
+    const { userId } = await seedAdminFixture(t);
+    await t.run((ctx) =>
+      ctx.db.insert("lists", {
+        userId,
+        name: "Legacy template activity",
+        isTemplate: true,
+        createdAt: Date.now(),
+        completedAt: Date.now(),
+      }),
+    );
+
+    const activity = await t
+      .withIdentity({ subject: "admin-user" })
+      .query(api.users.getUserActivity, { userId, limit: 10 });
+
+    expect(activity).toEqual([]);
+  });
+
   it("returns the authoritative updated user to administrator editors", async () => {
     const t = createTestBackend();
     const { userId } = await seedAdminFixture(t);

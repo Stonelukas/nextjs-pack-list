@@ -198,8 +198,8 @@ Updates remain waiting until the user approves activation. `runtimeCaching` and 
 
 ## Testing architecture
 
-- Client Vitest mounts real routes/pages/components/hooks and replaces only external Clerk/Convex/PWA/Vercel edges. Its memory-router helpers invoke the production `AppProviders` and can select configured or unconfigured runtime results. The client project uses one file worker with bounded async/test timeouts; the current gate is 386 tests across 89 files.
-- `convex-test` executes actual Convex auth/authorization/domain/webhook/migration functions and checks deployable module paths; the current gate is 145 tests across eight files.
+- Client Vitest mounts real routes/pages/components/hooks and replaces only external Clerk/Convex/PWA/Vercel edges. Its memory-router helpers invoke the production `AppProviders` and can select configured or unconfigured runtime results. The client project uses one file worker with bounded async/test timeouts; the current gate is 388 tests across 89 files.
+- `convex-test` executes actual Convex auth/authorization/domain/webhook/migration functions and checks deployable module paths; the current gate is 146 tests across eight files.
 - Playwright runs 37 deterministic desktop/mobile Chromium scenarios on the existing development-only Vite e2e boundary with two workers and zero retries. Playwright Clock controls the real ten-second auth readiness timeout, and 390×844 geometry checks cover landing, sign-in splat, and signed-in dashboard primary targets.
 - Production-build contracts prevent mock aliases and seed state from entering normal artifacts.
 - The node-environment source contract rejects top-level `use client` directives throughout retained non-test Vite source.

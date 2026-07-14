@@ -1,5 +1,5 @@
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Edit2, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,21 @@ export function ItemForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submissionGuard = useRef(false);
+  const draftTouched = useRef(false);
+
+  useEffect(() => {
+    if (!item && open && !draftTouched.current) {
+      setFormData((current) => ({
+        ...current,
+        priority: defaultPriority,
+      }));
+    }
+  }, [defaultPriority, item, open]);
+
+  const updateFormData = (updates: Partial<ItemFormValue>) => {
+    draftTouched.current = true;
+    setFormData((current) => ({ ...current, ...updates }));
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -105,7 +120,10 @@ export function ItemForm({
         item ? targetCategoryId : undefined,
       );
       setOpen(false);
-      if (!item) setFormData(emptyValue(defaultPriority));
+      if (!item) {
+        draftTouched.current = false;
+        setFormData(emptyValue(defaultPriority));
+      }
     } catch (error) {
       setSubmitError(mapError(error).message);
     } finally {
@@ -121,6 +139,7 @@ export function ItemForm({
         if (submitting && !nextOpen) return;
         setOpen(nextOpen);
         if (nextOpen) {
+          draftTouched.current = false;
           setFormData(itemValue(item, defaultPriority));
           setTargetCategoryId(categoryId);
           setSubmitError(null);
@@ -134,20 +153,21 @@ export function ItemForm({
         <DialogHeader><DialogTitle>{item ? "Edit item" : "Add item"}</DialogTitle><DialogDescription>Set the item name, quantity, priority, and optional details.</DialogDescription></DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2"><Label htmlFor="item-name">Name</Label><Input id="item-name" value={formData.name} onChange={(event) => setFormData({ ...formData, name: event.target.value })} required /></div>
-            <div className="grid gap-2"><Label htmlFor="item-description">Description</Label><Textarea id="item-description" value={formData.description} onChange={(event) => setFormData({ ...formData, description: event.target.value })} rows={2} /></div>
+            <div className="grid gap-2"><Label htmlFor="item-name">Name</Label><Input id="item-name" value={formData.name} onChange={(event) => updateFormData({ name: event.target.value })} required /></div>
+            <div className="grid gap-2"><Label htmlFor="item-description">Description</Label><Textarea id="item-description" value={formData.description} onChange={(event) => updateFormData({ description: event.target.value })} rows={2} /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2"><Label htmlFor="item-quantity">Quantity</Label><Input id="item-quantity" type="number" min="1" value={formData.quantity} onChange={(event) => setFormData({ ...formData, quantity: Number.parseInt(event.target.value, 10) || 1 })} /></div>
-              <div className="grid gap-2"><Label htmlFor="item-priority">Priority</Label><Select value={formData.priority} onValueChange={(priority) => setFormData({ ...formData, priority: priority as ItemFormValue["priority"] })}><SelectTrigger id="item-priority"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="essential">Essential</SelectItem><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
+              <div className="grid gap-2"><Label htmlFor="item-quantity">Quantity</Label><Input id="item-quantity" type="number" min="1" value={formData.quantity} onChange={(event) => updateFormData({ quantity: Number.parseInt(event.target.value, 10) || 1 })} /></div>
+              <div className="grid gap-2"><Label htmlFor="item-priority">Priority</Label><Select value={formData.priority} onValueChange={(priority) => updateFormData({ priority: priority as ItemFormValue["priority"] })}><SelectTrigger id="item-priority"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="essential">Essential</SelectItem><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
             </div>
             {item && availableCategories.length > 1 ? (
               <div className="grid gap-2">
                 <Label htmlFor="item-category">Category</Label>
                 <Select
                   value={targetCategoryId}
-                  onValueChange={(value) =>
-                    setTargetCategoryId(value as Id<"categories">)
-                  }
+                  onValueChange={(value) => {
+                    draftTouched.current = true;
+                    setTargetCategoryId(value as Id<"categories">);
+                  }}
                 >
                   <SelectTrigger id="item-category"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -160,8 +180,8 @@ export function ItemForm({
                 </Select>
               </div>
             ) : null}
-            <div className="grid gap-2"><Label htmlFor="item-weight">Weight</Label><Input id="item-weight" type="number" min="0" step="0.1" value={formData.weight ?? ""} onChange={(event) => setFormData({ ...formData, weight: event.target.value ? Number.parseFloat(event.target.value) : undefined })} /></div>
-            <div className="grid gap-2"><Label htmlFor="item-notes">Notes</Label><Textarea id="item-notes" value={formData.notes} onChange={(event) => setFormData({ ...formData, notes: event.target.value })} rows={2} /></div>
+            <div className="grid gap-2"><Label htmlFor="item-weight">Weight</Label><Input id="item-weight" type="number" min="0" step="0.1" value={formData.weight ?? ""} onChange={(event) => updateFormData({ weight: event.target.value ? Number.parseFloat(event.target.value) : undefined })} /></div>
+            <div className="grid gap-2"><Label htmlFor="item-notes">Notes</Label><Textarea id="item-notes" value={formData.notes} onChange={(event) => updateFormData({ notes: event.target.value })} rows={2} /></div>
           </div>
           {submitError ? (
             <p role="alert" className="mb-4 text-sm text-destructive">

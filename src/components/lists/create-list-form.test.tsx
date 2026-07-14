@@ -104,6 +104,28 @@ describe("CreateListForm selection semantics", () => {
 });
 
 describe("CreateListForm submissions", () => {
+  it("discards a canceled draft before reopening", async () => {
+    const user = userEvent.setup();
+    render(<CreateListForm />);
+
+    await user.click(screen.getByRole("button", { name: "Create new list" }));
+    await user.type(screen.getByLabelText("List name"), "Canceled trip");
+    await user.type(screen.getByLabelText("Description"), "Should be discarded");
+    await user.click(screen.getByRole("radio", { name: "Template" }));
+    await user.click(screen.getByRole("combobox", { name: "Template" }));
+    await user.click(screen.getByRole("option", { name: "Weekend starter" }));
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Create new list" }));
+
+    expect(screen.getByLabelText("List name")).toHaveValue("");
+    expect(screen.getByLabelText("Description")).toHaveValue("");
+    expect(screen.getByRole("radio", { name: "Scratch" })).toBeChecked();
+    expect(
+      screen.queryByRole("combobox", { name: "Template" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("loads selected template detail before enabling template application", async () => {
     const user = userEvent.setup();
     templateActions.detailLoading = true;

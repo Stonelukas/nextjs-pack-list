@@ -6,10 +6,22 @@ import userEvent from "@testing-library/user-event";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const preferenceState = vi.hoisted(() => ({
+  preferences: {
+    theme: "system",
+    defaultPriority: "essential" as "essential" | "high" | "medium" | "low",
+    autoSave: true,
+  } as
+    | {
+        theme: string;
+        defaultPriority: "essential" | "high" | "medium" | "low";
+        autoSave: boolean;
+      }
+    | undefined,
+}));
+
 vi.mock("@/features/settings/hooks/use-preferences", () => ({
-  usePreferences: () => ({
-    preferences: { theme: "system", defaultPriority: "essential", autoSave: true },
-  }),
+  usePreferences: () => preferenceState,
 }));
 
 import { ItemForm } from "./item-form";
@@ -40,6 +52,11 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  preferenceState.preferences = {
+    theme: "system",
+    defaultPriority: "essential",
+    autoSave: true,
+  };
   Object.defineProperties(HTMLElement.prototype, {
     hasPointerCapture: { configurable: true, value: () => false },
     releasePointerCapture: { configurable: true, value: () => undefined },
@@ -58,6 +75,44 @@ describe("ItemForm", () => {
     await user.click(screen.getByRole("button", { name: "Add item" }));
 
     expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent("Essential");
+  });
+
+  it("adopts a late new-item default while pristine without replacing edits", async () => {
+    const user = userEvent.setup();
+    preferenceState.preferences = undefined;
+    const view = () => (
+      <ItemForm categoryId={sourceCategoryId} onSubmit={vi.fn()} />
+    );
+    const { rerender } = render(view());
+
+    await user.click(screen.getByRole("button", { name: "Add item" }));
+    expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent(
+      "Medium",
+    );
+
+    preferenceState.preferences = {
+      theme: "system",
+      defaultPriority: "high",
+      autoSave: true,
+    };
+    rerender(view());
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent(
+        "High",
+      ),
+    );
+
+    await user.type(screen.getByLabelText("Name"), "Passport");
+    preferenceState.preferences = {
+      theme: "system",
+      defaultPriority: "low",
+      autoSave: true,
+    };
+    rerender(view());
+
+    expect(screen.getByRole("combobox", { name: "Priority" })).toHaveTextContent(
+      "High",
+    );
   });
 
   it("allows only one submission while the first item mutation is pending", async () => {

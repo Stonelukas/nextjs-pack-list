@@ -84,6 +84,7 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 - The `/lists/:id` page keys its detail subtree by the authoritative list ID so same-route navigation between cached lists remounts list-derived dialogs, drafts, guards, and completion refs.
 - The tag registry exhausts the bounded list export and both visible template-summary feeds before computing labels and per-source usage totals.
 - Quick-add priority follows a late authenticated preference while its draft is pristine; once the user edits any draft field, subsequent preference hydration cannot overwrite that in-progress form.
+- The full add-item form follows the same late-priority rule for new items, while edit forms always preserve the item's stored priority. Canceling list creation resets scratch/template selection and entered metadata before the persistent dialog closes.
 - `src/store/navigation-store.ts` persists presentation preferences only.
 
 ## One-time legacy browser-data import
@@ -166,6 +167,7 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 - Template totals and usage live in the bounded `templateStats` aggregate; popular templates use `by_usage` descending with `take(10)`, so the analytics dashboard no longer multiplies full template-table scans.
 - Real-time dashboard list activity also uses `lists.by_template(false)`, preserving ordinary-list-only metrics when migrated deployments still contain legacy template rows.
 - Administrator user activity stats use the same ordinary-list index, so users with legacy template rows but no real lists remain inactive.
+- Administrator user activity timelines also query `by_user_template(userId, false)`, preventing legacy templates from appearing as created or completed lists.
 - Moderation queues use validated cursor pagination and status/content-type indexes. The client exposes load-more, derives preview item types from the generated queue return, renders separate list/template details, and guards confirmation against repeated submission while pending.
 - Settings waits for preferences, full list export pages, and full owner-template export pages before enabling save/export. Unresolved preferences never fall back to editable defaults, and account backups contain nested template categories/items across every page.
 - Settings controls its active tab from the validated `section` search parameter, updates that parameter on tab changes, and reacts when a same-route migration link changes only the URL search string.
@@ -176,8 +178,8 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 
 **Files:** `src/test/`, `e2e/`, `playwright.config.ts`, `vitest.config.ts`, Convex `*.test.ts` files, `.github/workflows/ci.yml`.
 
-- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 386 tests across 89 files.
-- `convex-test` verifies actual server authorization, webhook, migration, deletion batching, pagination, aggregate, domain behavior, and deployable module paths. The current full Convex gate passes 145 tests across eight files.
+- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 388 tests across 89 files.
+- `convex-test` verifies actual server authorization, webhook, migration, deletion batching, pagination, aggregate, domain behavior, and deployable module paths. The current full Convex gate passes 146 tests across eight files.
 - Playwright runs 37 desktop/mobile Chromium journeys through the existing server-only flagged Vite e2e boundary with two workers and zero retries. Clock-controlled auth readiness coverage keeps the complete landing visible through the real ten-second timeout and Retry, while responsive coverage proves landing/auth/dashboard geometry and 44px primary targets at 390×844.
 - Production-build contracts prevent test aliases from entering normal bundles.
 - Public build validation accepts the Convex CLI-managed HTTPS `VITE_CONVEX_SITE_URL` only as non-runtime HTTP-actions metadata; unknown `VITE_*` values remain rejected.

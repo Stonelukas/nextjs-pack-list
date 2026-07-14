@@ -447,7 +447,9 @@ export const getUserActivity = query({
     if (!user) throw domainError("NOT_FOUND", "User was not found");
     const lists = await ctx.db
       .query("lists")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_template", (q) =>
+        q.eq("userId", args.userId).eq("isTemplate", false),
+      )
       .collect();
     const activities: Array<{
       type: string;

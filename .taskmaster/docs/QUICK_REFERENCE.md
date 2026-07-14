@@ -128,7 +128,7 @@ Admin user reads and moderation both use cursor pagination with visible load-mor
 
 ## Startup test boundary
 
-`renderAppRoute` and `renderWithProviders` invoke the real `AppProviders` with memory routers and may pass configured or unconfigured runtime results. `unavailableAuth()` means unresolved Clerk input only; the real readiness provider owns the 10,000ms unavailable transition and Retry. The full single-worker client gate is 386 tests across 89 files.
+`renderAppRoute` and `renderWithProviders` invoke the real `AppProviders` with memory routers and may pass configured or unconfigured runtime results. `unavailableAuth()` means unresolved Clerk input only; the real readiness provider owns the 10,000ms unavailable transition and Retry. The full single-worker client gate is 388 tests across 89 files.
 
 ## Persistence
 
@@ -156,7 +156,7 @@ Existing static files must win before the rewrite. The Vercel origin hosts no bu
 
 ## Known blockers
 
-- Rewrite verification is green: 386 client tests across 89 files, 145 Convex tests across eight files, 37 zero-retry Playwright journeys, built-artifact smoke, production-preview shell/offline service-worker navigation, strict typecheck, ESLint with 0 errors/20 existing warnings, frozen install, JSON/YAML/stale-claim/whitespace checks, and final review approval. Production Vercel and Convex deployments have been exercised; Clerk webhook delivery still requires explicit live re-verification.
+- Rewrite verification is green: 388 client tests across 89 files, 146 Convex tests across eight files, 37 zero-retry Playwright journeys, built-artifact smoke, production-preview shell/offline service-worker navigation, strict typecheck, ESLint with 0 errors/20 existing warnings, frozen install, JSON/YAML/stale-claim/whitespace checks, and final review approval. Production Vercel and Convex deployments have been exercised; Clerk webhook delivery still requires explicit live re-verification.
 - Convex code generation and live authenticated/webhook verification require a real `CONVEX_DEPLOYMENT` and Clerk/Convex configuration.
 
 _Last updated: July 14, 2026_

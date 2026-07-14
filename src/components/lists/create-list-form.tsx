@@ -192,7 +192,10 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
               type="button"
               variant="outline"
               disabled={pending}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                reset();
+                setOpen(false);
+              }}
             >
               Cancel
             </Button>
