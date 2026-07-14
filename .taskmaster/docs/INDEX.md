@@ -1,193 +1,94 @@
-# task-master-init - Documentation Index
+# Documentation Index
 
-## 📚 Documentation Structure
+These files are the active implementation memory for Route Ledger. Update them whenever architecture, APIs, deployment, or operator behavior changes.
 
-This directory contains comprehensive documentation for the task-master-init project. These documents serve as persistent memory for Claude Code and must be referenced and updated with every feature implementation.
+## Application entry points
 
-### Core Documents
+- [README](../../README.md): Bun-only local development, commands, routes, PWA, and deployment overview.
+- [Deployment](../../DEPLOYMENT.md): static Vercel SPA procedure and verification.
+- [Clerk setup](../../CLERK_SETUP.md): Clerk React, Convex JWT, webhook, and roles.
+- [Production checklist](../../PRODUCTION_CHECKLIST.md): release gates.
+- [Knowledge base](../../KNOWLEDGE_BASE.md): repository navigation.
 
-1. **[FEATURE_IMPLEMENTATIONS.md](./FEATURE_IMPLEMENTATIONS.md)**
-   - Complete list of implemented features
-   - File locations for each feature
-   - Integration points and patterns
-   - TODO items for missing functionality
-   - Keyboard shortcuts reference (if applicable)
+## Task Master references
 
-2. **[CODE_PATTERNS.md](./CODE_PATTERNS.md)**
-   - Reusable code templates
-   - Common patterns for this project
-   - Testing templates
-   - Helper functions
+1. [Current work session](CURRENT_WORK_SESSION.md) — rewrite progress, constraints, verification, blockers.
+2. [Feature implementations](FEATURE_IMPLEMENTATIONS.md) — implemented capabilities and file locations.
+3. [Code patterns](CODE_PATTERNS.md) — reusable route, hook, authorization, migration, PWA, and deployment patterns.
+4. [API reference](API_REFERENCE.md) — routes, generated hook contracts, auth helpers, environment, PWA, and Vercel configuration.
+5. [Troubleshooting](TROUBLESHOOTING.md) — build, auth, webhook, deployment, PWA, test, and migration failures.
+6. [Architecture](ARCHITECTURE.md) — trust, data, module, PWA, testing, and static hosting boundaries.
+7. [Convex integration summary](CONVEX_INTEGRATION_SUMMARY.md) — identity, authorization, webhook, typed hooks, and persistence.
+8. [Quick reference](QUICK_REFERENCE.md) — commands and exact operational values.
 
-3. **[API_REFERENCE.md](./API_REFERENCE.md)**
-   - Application interfaces
-   - Service contracts
-   - Data structures
-   - Configuration schemas
-   - Constants and enums
+## Current invariants
 
-4. **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
-   - Common issues and solutions
-   - Integration gotchas
-   - Debugging tips
-   - Prevention checklists
+- Vite, React, and React Router own the browser application.
+- Bun is the application package manager and `bun.lock` is the only application lockfile.
+- Convex is authoritative for domain data and server authorization.
+- Convex CLI may manage local public `VITE_CONVEX_SITE_URL` metadata for HTTP actions/webhooks; runtime configuration does not consume it and Vercel does not require it.
+- Configured runtime mounts Clerk, Convex, auth readiness, and state-only account bootstrap; unconfigured runtime constructs neither external provider and still renders public routes.
+- Clerk React supplies browser identity through `ConvexProviderWithClerk`; `RequireAuth` owns protected loading/unavailable/bootstrap recovery and preserves complete return URLs.
+- Account bootstrap always renders router children, times out pending signed-in Convex readiness at 15 seconds, and gates the authenticated shell plus preference query until ready.
+- `RootLayout` always mounts the shared header. `Header` itself reads auth readiness and mounts role access, Clerk account controls, and any Convex-backed navigation logic only inside the ready signed-in child, so loading, signed-out, and unconfigured public branches remain provider-safe.
+- `/` always retains the provider-independent friendly landing until ready signed-in auth and ready account bootstrap can mount `ListOverview`; the landing owns the route's single `main-content` landmark while other public routes use `RootLayout`'s shared main. `AuthLayout` owns centered auth loading and unavailable recovery before Clerk forms mount.
+- The signed-in workspace uses one-line branding, grouped Lists/Organize/Recent/Settings navigation, soft blue active surfaces, immediate quick-start templates, accessible definition-list stat tiles, and rounded Source Sans 3 card surfaces without changing list filters, permissions, actions, or pagination.
+- `/templates` remains public at the same URL but requires configured runtime before connected data mounts.
+- Typed hooks under `src/features/**/hooks` preserve generated Convex IDs/arguments/returns.
+- Retained Vite source contains no top-level `use client` directives; the node-environment source-contract test scans all non-test JavaScript/TypeScript source and treats Next/RSC client-boundary markers as regressions.
+- Dashboard/sidebar/index list collections use bounded ordinary-list summary pages; full nested account data uses a separate paginated export path. Legacy list template/publication flags remain storage-only and legacy template rows are excluded by the compound owner/type index.
+- Template browsing merges bounded public/owned summaries with denormalized counts and explicit next-page state; preview/apply wait for one authorized detail query that loads bounded canonical children. One-shot submission handlers use synchronous duplicate guards, while quantity controls send independent atomic deltas.
+- The predefined public catalog is backend-owned and environment-local: the internal idempotent seed synchronizes nine official templates, 39 categories, and 264 items after a fresh Convex deployment or catalog expansion.
+- Administration reads users through mandatory bounded pages. The browser loads 50 at a time, filters only loaded rows, and cannot request deletion of the authenticated administrator; Convex independently rejects self-deletion.
+- `src/store/navigation-store.ts` and theme persistence are presentation-only.
+- `pack-list-storage` is untrusted, read-only legacy import input.
+- The PWA caches only the static shell and icons; durable writes require connectivity.
+- `vercel.json` publishes `dist` and rewrites only unmatched paths to `index.html`.
+- Vercel hosts no business API or Clerk webhook.
+- Public `VITE_*` values and Convex deployment secrets have separate ownership.
+- Shared render helpers invoke the real `AppProviders` with memory routers; unresolved auth is projected by the real ten-second provider timeout, not by mocks.
+- `.github/workflows/ci.yml` enforces frozen Bun install, client/build/artifact smoke, Convex, and 37 deterministic two-worker/zero-retry Chromium journeys without deployment credentials.
+- Convex and Vercel are separate release stages with matching-revision checks and independent rollback ownership.
 
-5. **[ARCHITECTURE.md](./ARCHITECTURE.md)**
-   - System architecture overview
-   - Layer responsibilities
-   - Component relationships
-   - Design decisions
+## Required commands
 
----
-
-## 🔄 Update Protocol
-
-**EVERY new feature implementation MUST:**
-
-1. ✅ Update FEATURE_IMPLEMENTATIONS.md with:
-   - Feature description
-   - File locations
-   - Integration points
-   - TODO items
-
-2. ✅ Add to CODE_PATTERNS.md if:
-   - Pattern is reusable
-   - Common operation type
-   - Testing pattern
-
-3. ✅ Update API_REFERENCE.md with:
-   - New interfaces
-   - Service methods
-   - Data structures
-   - Configuration options
-
-4. ✅ Document in TROUBLESHOOTING.md if:
-   - Issues encountered
-   - Non-obvious solutions
-   - Integration challenges
-
-5. ✅ Update ARCHITECTURE.md if:
-   - Structural changes made
-   - New components added
-   - Design patterns introduced
-
----
-
-## 🎯 Quick Navigation
-
-### By Task
-- **New Feature**: Start with [ARCHITECTURE.md](./ARCHITECTURE.md) → [CODE_PATTERNS.md](./CODE_PATTERNS.md)
-- **Bug Fix**: Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) → [FEATURE_IMPLEMENTATIONS.md](./FEATURE_IMPLEMENTATIONS.md)
-- **Refactoring**: Review [ARCHITECTURE.md](./ARCHITECTURE.md) → [API_REFERENCE.md](./API_REFERENCE.md)
-- **Testing**: See [CODE_PATTERNS.md](./CODE_PATTERNS.md#testing-patterns)
-
-### By Layer (if applicable)
-- **Presentation/UI**: UI components, event handling, user interaction
-- **Business/Domain**: Core logic, domain models, business rules
-- **Data/Infrastructure**: Storage, external services, system integration
-- **Shared/Common**: Utilities, helpers, constants
-
----
-
-## 📋 Task Master Integration
-
-### Using These Docs with Task Master
-
-1. **When starting a task**: 
-   ```bash
-   task-master show <id>
-   # Then check relevant sections in these docs
-   ```
-
-2. **During implementation**:
-   ```bash
-   task-master update-subtask --id=<id> --prompt="Check FEATURE_IMPLEMENTATIONS.md for similar patterns"
-   ```
-
-3. **After completing**:
-   ```bash
-   # Update all relevant documentation
-   # Then mark task complete
-   task-master set-status --id=<id> --status=done
-   ```
-
----
-
-## 🔍 Search Keywords
-
-### Common Searches
-- **"how to"** → [CODE_PATTERNS.md](./CODE_PATTERNS.md)
-- **"error"** → [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
-- **"where is"** → [FEATURE_IMPLEMENTATIONS.md](./FEATURE_IMPLEMENTATIONS.md)
-- **"interface"** → [API_REFERENCE.md](./API_REFERENCE.md)
-- **"architecture"** → [ARCHITECTURE.md](./ARCHITECTURE.md)
-
----
-
-## 💡 Implementation Reminders
-
-### Before Starting Work
-1. Review this INDEX.md
-2. Check FEATURE_IMPLEMENTATIONS.md for existing patterns
-3. Read ARCHITECTURE.md for design guidelines
-4. Look for similar patterns in CODE_PATTERNS.md
-
-### During Implementation
-1. Follow patterns from CODE_PATTERNS.md
-2. Update documentation as you code
-3. Document any issues in TROUBLESHOOTING.md
-4. Add TODOs to FEATURE_IMPLEMENTATIONS.md
-
-### After Completing Work
-1. Update all affected documentation
-2. Add new patterns if discovered
-3. Document lessons learned
-4. Cross-reference related features
-
----
-
-## 📝 Documentation Standards
-
-### File Naming
-- Use UPPERCASE.md for index/reference docs
-- Use snake_case.md for feature-specific docs
-- Keep names descriptive but concise
-
-### Content Structure
-1. Clear title with purpose
-2. Table of contents for long docs
-3. Code examples with syntax highlighting
-4. File paths as inline code
-5. TODO items as checkboxes
-6. Cross-references with relative links
-
-### Code Examples
-```typescript
-// Always include context
-// Explain non-obvious parts
-// Show both good and bad examples when relevant
+```bash
+bun run check
+bun run test:convex
+bun run test:e2e:install      # first local run
+bun run test:e2e
+bun run build
+bun run test:build-smoke
+bun run preview --host 127.0.0.1 --port 4173
 ```
 
----
+Fresh Linux CI uses `bun run test:e2e:install:ci`. `bun run check` is not the complete gate by itself.
 
-## 🚀 Getting Started (New Session)
+## Documentation update protocol
 
-When starting a new Claude Code session:
+For every feature or integration change:
 
-1. **Review**: Start with this INDEX.md
-2. **Context**: Check project status in FEATURE_IMPLEMENTATIONS.md
-3. **Patterns**: Review CODE_PATTERNS.md for project conventions
-4. **Issues**: Check TROUBLESHOOTING.md for known problems
-5. **Update**: Keep docs current as you work
+1. Update `FEATURE_IMPLEMENTATIONS.md`.
+2. Add or change reusable guidance in `CODE_PATTERNS.md`.
+3. Update `API_REFERENCE.md` for contracts/configuration.
+4. Add non-obvious failures to `TROUBLESHOOTING.md`.
+5. Update `ARCHITECTURE.md` for trust/data/deployment changes.
+6. Update `CURRENT_WORK_SESSION.md` with progress, verification, and blockers.
+7. Validate links, paths, commands, JSON, and stale operational claims.
 
----
+## Historical records
 
-## 📌 Project-Specific Notes
+- `docs/superpowers/specs/`
+- `docs/superpowers/plans/`
+- `.superpowers/sdd/task-*-brief.md`
+- `.superpowers/sdd/task-*-report.md`
+- archive-labeled root `prd.txt`
+- legacy Task Master task database entries
 
-{{PROJECT_SPECIFIC_NOTES}}
+These are migration specifications/execution records. Removed-framework references inside them are archival context and should not be rewritten as current runtime behavior. Active operational documents must not copy their obsolete commands.
 
----
+## Task Master database note
 
-*Last Updated: September 01, 2025*
-*Generated by Task Master AI Documentation System*
-*Always start here when beginning work on task-master-init*
+The checked-in Task Master `master` tag predates this rewrite; its task IDs do not map to the SDD rewrite task numbers. Use the CLI for real Task Master records, never edit `.taskmaster/tasks/tasks.json` manually, and track rewrite execution in `CURRENT_WORK_SESSION.md` plus SDD reports.
+
+_Last updated: July 14, 2026_

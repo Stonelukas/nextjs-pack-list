@@ -1,231 +1,90 @@
-# Task Master Init - Comprehensive Knowledge Base
+# Route Ledger Knowledge Base
 
-## 🎯 Project Overview
+This file is the repository-level navigation entry for the active Vite/React Router/Convex application and its Task Master workflow.
 
-**task-master-init** is a comprehensive project management and task automation system that combines:
+## Start here
 
-1. **Task Master AI System** - Intelligent task management with multi-provider AI integration
-2. **Pack List Application** - Modern PWA for packing list management
-3. **Claude Code Integration** - Seamless AI assistant workflow integration
+- [README.md](README.md): Bun-only development, scripts, environment scopes, PWA boundary, and route overview.
+- [DEPLOYMENT.md](DEPLOYMENT.md): static Vercel SPA contract and verification.
+- [CLERK_SETUP.md](CLERK_SETUP.md): Clerk React, Convex JWT, roles, and signed webhook setup.
+- [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md): release gates and Preview checks.
+- [.taskmaster/docs/INDEX.md](.taskmaster/docs/INDEX.md): detailed architecture, APIs, patterns, troubleshooting, and session state.
 
-## 📚 Documentation Navigation
+## Application structure
 
-### 🚀 Quick Start Guides
+```text
+src/
+├── main.tsx                    # environment validation, Sentry, React mount
+├── app/                        # providers, router, layouts, guards, boundaries
+├── features/
+│   ├── auth/                   # Clerk path-routed sign-in/sign-up
+│   ├── lists/                  # list routes, typed hooks, mutation models
+│   ├── templates/              # template route and typed hook
+│   ├── settings/               # preferences, export/import, legacy migration
+│   ├── admin/                  # server-confirmed administrator route
+│   ├── legacy-migration/       # read-only legacy source normalization/recovery
+│   └── shared/                 # async mutation state
+├── components/                 # Route Ledger presentation and workflows
+├── providers/                  # Clerk-backed Convex and theme providers
+├── store/navigation-store.ts   # presentation-only Zustand state
+└── lib/                        # environment, errors, monitoring, utilities
 
-#### For Task Master AI System
-```bash
-# Install Task Master globally
-npm install -g task-master-ai
-
-# Initialize in your project
-task-master init
-
-# Parse requirements and generate tasks
-task-master parse-prd requirements.txt
-
-# Start working
-task-master next
+convex/
+├── lib/                        # auth, authorization, errors, deletion, validators
+├── lists.ts                    # owned list/category/item operations
+├── templates.ts                # public/owned templates and atomic application
+├── users.ts                    # current-user/admin/internal Clerk sync
+├── migrations.ts              # user-scoped atomic legacy import
+├── http.ts                    # signed Clerk webhook
+└── schema.ts                  # authoritative persistence model
 ```
 
-#### For Pack List Application
+## Supported commands
+
 ```bash
-# Navigate to pack-list directory
-cd pack-list
-
-# Install dependencies
 bun install
-
-# Start development server
 bun run dev
-
-# Build for production
+bun run check
+bun run test:convex
+bun run test:e2e:install      # first local run
+bun run test:e2e
 bun run build
+bun run preview --host 127.0.0.1 --port 4173
 ```
 
-### 📖 Core Documentation
+Use `bun run test:e2e:install:ci` on a fresh Linux CI runner. `bun run check` does not include Convex or Playwright.
 
-| Document | Purpose | Location |
-|----------|---------|----------|
-| **[INDEX.md](./.taskmaster/docs/INDEX.md)** | Documentation navigation hub | `.taskmaster/docs/` |
-| **[API_REFERENCE.md](./.taskmaster/docs/API_REFERENCE.md)** | Complete API documentation | `.taskmaster/docs/` |
-| **[ARCHITECTURE.md](./.taskmaster/docs/ARCHITECTURE.md)** | System architecture and design | `.taskmaster/docs/` |
-| **[FEATURE_IMPLEMENTATIONS.md](./.taskmaster/docs/FEATURE_IMPLEMENTATIONS.md)** | Implemented features catalog | `.taskmaster/docs/` |
-| **[CODE_PATTERNS.md](./.taskmaster/docs/CODE_PATTERNS.md)** | Reusable code patterns | `.taskmaster/docs/` |
-| **[TROUBLESHOOTING.md](./.taskmaster/docs/TROUBLESHOOTING.md)** | Common issues and solutions | `.taskmaster/docs/` |
+## Runtime boundaries
 
-### 🏗️ Project Structure
+- React Router owns public, authenticated, admin, Clerk splat, and not-found navigation.
+- Clerk React establishes browser identity; `ConvexProviderWithClerk` transports it.
+- Convex resolves `identity.subject`, verifies ownership/admin role, and commits authoritative data.
+- Typed feature hooks preserve generated Convex identifiers and exact argument/return contracts.
+- Browser persistence is limited to theme/navigation presentation and the explicit read-only legacy source.
+- The PWA caches only the static shell and icons. Offline editing and later synchronization are not implemented.
+- Vercel serves static `dist` artifacts and rewrites unmatched paths to `index.html`. It does not host a business API or Clerk webhook.
 
-```
-task-master-init/
-├── 📁 pack-list/                    # Pack List PWA Application
-│   ├── 📁 src/
-│   │   ├── 📁 app/                  # Next.js App Router pages
-│   │   ├── 📁 components/           # React components
-│   │   ├── 📁 store/                # Zustand state management
-│   │   ├── 📁 types/                # TypeScript definitions
-│   │   ├── 📁 hooks/                # Custom React hooks
-│   │   └── 📁 lib/                  # Utility functions
-│   ├── 📄 package.json              # Dependencies and scripts
-│   ├── 📄 next.config.ts            # Next.js configuration
-│   └── 📄 README.md                 # Pack List documentation
-├── 📁 .taskmaster/                  # Task Master AI System
-│   ├── 📁 docs/                     # Comprehensive documentation
-│   ├── 📁 tasks/                    # Task database (JSON)
-│   ├── 📁 reports/                  # Analysis reports
-│   ├── 📁 templates/                # Template files
-│   └── 📄 config.json               # AI model configuration
-├── 📁 .claude/                      # Claude Code Integration
-│   ├── 📁 commands/                 # Slash commands
-│   └── 📄 settings.json             # Claude Code settings
-├── 📄 CLAUDE.md                     # Auto-loaded Claude context
-├── 📄 README.md                     # Project overview
-└── 📄 KNOWLEDGE_BASE.md             # This file
-```
+## Environment ownership
 
-## 🔧 Technology Stack
+Public Vite/Vercel build values:
 
-### Task Master AI System
-- **Runtime**: Node.js with CLI interface
-- **AI Integration**: Multi-provider (Anthropic, OpenAI, Perplexity, Google, etc.)
-- **Data Storage**: File-system JSON database
-- **Integration**: MCP (Model Context Protocol) server
-- **Documentation**: Markdown with auto-generation
+- `VITE_CLERK_PUBLISHABLE_KEY`
+- `VITE_CONVEX_URL`
+- optional `VITE_APP_URL`
+- optional `VITE_SENTRY_DSN`
 
-### Pack List Application
-- **Framework**: Next.js 15 with App Router
-- **Language**: TypeScript 5
-- **UI Library**: Shadcn/ui + Radix UI
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand with persistence
-- **Animations**: Framer Motion
-- **PWA**: Service Worker + Manifest
-- **Package Manager**: Bun
+Convex deployment values:
 
-## 🎨 Key Features
+- `CLERK_JWT_ISSUER_DOMAIN`
+- `CLERK_WEBHOOK_SECRET`
 
-### Task Master AI Features
-- ✅ **Multi-Provider AI Integration** - Support for 7+ AI providers
-- ✅ **Intelligent Task Analysis** - Complexity analysis and task breakdown
-- ✅ **Workflow Automation** - Automated task generation from PRDs
-- ✅ **Claude Code Integration** - Seamless AI assistant workflows
-- ✅ **Dependency Management** - Task dependency tracking and validation
-- ✅ **Progress Tracking** - Real-time project status monitoring
-- ✅ **Report Generation** - Automated markdown reports
+Local/CI tooling:
 
-### Pack List Application Features
-- ✅ **Smart List Management** - Create unlimited packing lists
-- ✅ **Category Organization** - Organize items by categories
-- ✅ **Priority System** - Essential, High, Medium, Low priorities
-- ✅ **Template Library** - Pre-built and custom templates
-- ✅ **Progress Tracking** - Visual progress indicators
-- ✅ **Mobile Responsive** - Touch-friendly mobile interface
-- ✅ **Offline Support** - Full PWA functionality
-- ✅ **Import/Export** - JSON and PDF export capabilities
-- ✅ **Dark Mode** - Automatic theme switching
+- `CONVEX_DEPLOYMENT` for project linkage
+- optional `CONVEX_DEPLOY_KEY` for an explicit Convex deploy step
 
-## 🚀 Getting Started Workflows
+## Historical records
 
-### 1. New Project Setup
-```bash
-# Clone or initialize project
-git clone <repository>
-cd task-master-init
+`docs/superpowers/specs/`, `docs/superpowers/plans/`, and `.superpowers/sdd/task-*-brief.md` / `task-*-report.md` describe migration decisions and execution history. Removed-framework references in those records are archival context, not current operator instructions.
 
-# Setup Task Master
-task-master init
-
-# Setup Pack List (if needed)
-cd pack-list
-bun install
-```
-
-### 2. Development Workflow
-```bash
-# Start Pack List development
-cd pack-list
-bun run dev
-
-# Work with Task Master
-task-master next                    # Get next task
-task-master show <id>              # View task details
-task-master set-status <id> in-progress  # Start working
-```
-
-### 3. AI-Assisted Development
-```bash
-# Use Claude Code with MCP integration
-# Slash commands available:
-/project:tm/next                   # Get next task
-/project:tm/show <id>             # Show task details
-/project:tm/analyze-complexity    # Analyze tasks
-```
-
-## 📋 Common Tasks Reference
-
-### Task Master Operations
-| Command | Purpose | Example |
-|---------|---------|---------|
-| `task-master init` | Initialize project | `task-master init` |
-| `task-master parse-prd <file>` | Generate tasks from PRD | `task-master parse-prd requirements.txt` |
-| `task-master list-tasks` | List all tasks | `task-master list-tasks --status pending` |
-| `task-master show <id>` | Show task details | `task-master show 1` |
-| `task-master set-status <id> <status>` | Update task status | `task-master set-status 1 done` |
-| `task-master next` | Get next recommended task | `task-master next` |
-| `task-master analyze-complexity` | Analyze task complexity | `task-master analyze-complexity --research` |
-
-### Pack List Development
-| Command | Purpose | Example |
-|---------|---------|---------|
-| `bun run dev` | Start development server | `bun run dev` |
-| `bun run build` | Build for production | `bun run build` |
-| `bun run start` | Start production server | `bun run start` |
-| `bun run lint` | Run ESLint | `bun run lint` |
-
-## 🔍 Troubleshooting Quick Reference
-
-### Common Issues
-1. **API Key Missing**: Set required environment variables (ANTHROPIC_API_KEY, etc.)
-2. **Task Master Not Found**: Install globally with `npm install -g task-master-ai`
-3. **Build Errors**: Check TypeScript errors and dependencies
-4. **MCP Connection Issues**: Verify `.mcp.json` configuration
-
-### Debug Commands
-```bash
-# Check Task Master status
-task-master status
-
-# Validate dependencies
-task-master validate-dependencies
-
-# Check model configuration
-task-master models --status
-```
-
-## 📞 Support and Resources
-
-### Documentation Links
-- **Task Master CLI**: [.taskmaster/CLAUDE.md](./.taskmaster/CLAUDE.md)
-- **Pack List App**: [pack-list/README.md](./pack-list/README.md)
-- **Deployment Guide**: [pack-list/DEPLOYMENT.md](./pack-list/DEPLOYMENT.md)
-- **Production Checklist**: [pack-list/PRODUCTION_CHECKLIST.md](./pack-list/PRODUCTION_CHECKLIST.md)
-
-### Key Configuration Files
-- **Task Master Config**: `.taskmaster/config.json`
-- **MCP Configuration**: `.mcp.json`
-- **Claude Settings**: `.claude/settings.json`
-- **Next.js Config**: `pack-list/next.config.ts`
-- **Package Config**: `pack-list/package.json`
-
----
-
-## 🎯 Next Steps
-
-1. **Explore Documentation**: Start with [INDEX.md](./.taskmaster/docs/INDEX.md)
-2. **Try Task Master**: Run `task-master next` to get started
-3. **Develop Pack List**: Use `bun run dev` in pack-list directory
-4. **Use Claude Integration**: Try slash commands like `/project:tm/next`
-
----
-
-*Last Updated: September 01, 2025*
-*This knowledge base provides comprehensive navigation for the task-master-init project*
+`PROJECT_ANALYSIS.md`, `DOCUMENTATION_SUMMARY.md`, and the legacy developer guides carry explicit archive/replacement notices. Do not copy obsolete commands from historical Task Master task records into active application documentation.

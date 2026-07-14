@@ -1,229 +1,63 @@
-# Pack List - Project Summary 🎉
+# Route Ledger Project Summary
 
-## Project Completion Status: ✅ PRODUCTION READY
+## Current status
 
-All Task Master tasks have been successfully completed and the Pack List application is now production-ready.
+The application rewrite is implemented in the working tree as a Vite 7, React 19, React Router 7, Clerk React, and Convex application. Task 11 supplies the static Vercel contract and replaces stale operational documentation. No deployment is performed by this task.
 
-## Completed Features
+## Current architecture
 
-### ✅ Task 1: Project Setup and Configuration
-- Next.js 14 with App Router
-- TypeScript configuration
-- Tailwind CSS styling
-- Shadcn/ui component library
-- Zustand state management
-- Development environment setup
+- Vite builds a static client into `dist`.
+- React Router lazy-loads `/`, Clerk splats, list routes, templates, categories, tags, settings, admin, and client not-found recovery.
+- Clerk React provides browser sessions.
+- `ConvexProviderWithClerk` transports identity to Convex.
+- Convex is authoritative for domain data and enforces ownership/admin authorization server-side.
+- Typed hooks under `src/features/**/hooks` use generated `Id<>`, `FunctionArgs`, and `FunctionReturnType` contracts.
+- Zustand stores presentation state only.
+- The one-time legacy import reads `pack-list-storage` as untrusted input and commits a bounded, idempotent, atomic Convex transaction.
+- `vite-plugin-pwa` generates the manifest and Workbox worker for a shell-only offline experience.
 
-### ✅ Task 2: Data Models and State Management
-- Type definitions for List, Category, Item, Template
-- Priority system implementation
-- Zustand store with persistence
-- Local storage integration
-- State management hooks
+## Testing
 
-### ✅ Task 3: List Management UI
-- Create/Read/Update/Delete lists
-- List overview dashboard
-- List detail views
-- List cards with progress indicators
-- List statistics and metadata
+The repository defines separate gates:
 
-### ✅ Task 4: Item and Category Management
-- Add/edit/delete categories
-- Add/edit/delete items
-- Priority assignment (Essential, High, Medium, Low)
-- Quantity tracking
-- Weight tracking
-- Drag-and-drop reordering
-- Packed/unpacked toggle
-
-### ✅ Task 5: Progress Tracking and Visualization
-- Visual progress bars
-- Completion percentage calculations
-- Category-level progress
-- List-level progress
-- Priority-based progress breakdown
-- Weight statistics
-- Confetti celebration on 100% completion
-
-### ✅ Task 6: Template Library Implementation
-- Pre-built templates (Business Trip, Beach Vacation, Camping, Weekend Getaway, International Travel)
-- Save list as template
-- Create list from template
-- Template management (edit/delete/duplicate)
-- Template visibility settings (public/private)
-
-### ✅ Task 7: Search, Filter, and Sort
-- Item search within lists
-- Category filtering
-- Priority-based filtering
-- Sort by name, priority, packed status
-- Quick filters for unpacked items
-
-### ✅ Task 8: Export and Sharing Features
-- Export list as JSON
-- Import JSON lists
-- Print-friendly view
-- Share functionality preparation
-
-### ✅ Task 9: Mobile Responsiveness
-- Responsive design for all screen sizes
-- Mobile navigation menu
-- Touch-friendly interfaces
-- Floating action buttons
-- Pull-to-refresh functionality
-- Mobile-optimized layouts
-
-### ✅ Task 10: Accessibility and Final Polish
-- WCAG 2.1 AA compliance
-- Keyboard navigation
-- Screen reader support
-- Skip navigation links
-- ARIA labels and descriptions
-- Focus management
-- High contrast support
-
-### ✅ Task 11: Production Preparation
-- Performance optimization
-- Code splitting and lazy loading
-- Bundle size optimization
-- ESLint and TypeScript error fixes
-- Production build configuration
-- PWA manifest
-- SEO metadata
-- Error boundaries
-- Loading states
-- Web Vitals monitoring
-
-## Technical Stack
-
-- **Framework**: Next.js 14.2.21 (App Router)
-- **Language**: TypeScript 5
-- **Styling**: Tailwind CSS 3.4
-- **UI Components**: Shadcn/ui
-- **State Management**: Zustand 5.0
-- **Animations**: Framer Motion 11.18
-- **Icons**: Lucide React
-- **Drag & Drop**: @dnd-kit
-- **Date Handling**: date-fns
-- **Package Manager**: Bun
-- **Notifications**: Sonner
-
-## Performance Metrics
-
-- **Build Size**: ~267KB (First Load JS for dynamic routes)
-- **Lighthouse Score**: 95+ (estimated)
-- **Build Time**: ~9.4 seconds
-- **Static Pages**: 6 pre-rendered
-- **Dynamic Pages**: 1 (list detail page)
-
-## File Structure
-
-```
-pack-list/
-├── src/
-│   ├── app/                    # Next.js pages and layouts
-│   ├── components/              # React components
-│   │   ├── ui/                 # Base UI components
-│   │   ├── lists/              # List management
-│   │   ├── templates/          # Template system
-│   │   ├── progress/           # Progress tracking
-│   │   ├── mobile/             # Mobile-specific
-│   │   ├── error/              # Error handling
-│   │   ├── accessibility/     # A11y components
-│   │   └── lazy/               # Lazy-loaded components
-│   ├── lib/                    # Utilities and helpers
-│   ├── store/                  # Zustand state
-│   ├── types/                  # TypeScript types
-│   ├── data/                   # Static data
-│   └── providers/              # React providers
-├── public/                     # Static assets
-├── .taskmaster/                # Task Master configuration
-└── Documentation files
+```bash
+bun run check
+bun run test:convex
+bun run test:e2e:install      # first local Chromium installation
+bun run test:e2e
 ```
 
-## Production Deployment
+Fresh Linux CI uses `bun run test:e2e:install:ci`. Playwright covers desktop and mobile Chromium through a deterministic Vite development boundary. It does not replace production `dist` or Vercel rewrite verification.
 
-The application is ready for deployment with:
+## Deployment
 
-1. **Documentation**:
-   - README.md - Project overview and setup
-   - DEPLOYMENT.md - Detailed deployment guide
-   - PRODUCTION_CHECKLIST.md - Pre-deployment checklist
+`vercel.json` configures:
 
-2. **Configuration**:
-   - .env.production - Production environment template
-   - manifest.json - PWA configuration
-   - next.config.ts - Optimized build settings
+- framework: `vite`
+- install: `bun install --frozen-lockfile`
+- build: `bun run build`
+- output: `dist`
+- unmatched-path rewrite: `/(.*)` to `/index.html`
 
-3. **Quality Assurance**:
-   - All ESLint errors resolved
-   - TypeScript errors fixed
-   - Production build successful
-   - Manual testing completed
+Vercel's filesystem handling must serve real static assets before the rewrite. Direct React Router URLs must preserve the requested URL and receive the shell.
 
-## Deployment Options
+## PWA boundary
 
-1. **Vercel** (Recommended):
-   ```bash
-   vercel --prod
-   ```
+The service worker precaches compiled shell assets, fonts, and explicit icons. It does not cache Convex traffic, queue writes, or implement Background Sync. Cached pages may reopen for reading; current Convex data and durable changes require connectivity.
 
-2. **Docker**:
-   ```bash
-   docker build -t pack-list .
-   docker run -p 80:3000 pack-list
-   ```
+## Monitoring
 
-3. **Traditional Server**:
-   ```bash
-   pm2 start ecosystem.config.js --env production
-   ```
+- `@sentry/react` is optional through `VITE_SENTRY_DSN` and redacts sensitive event fields.
+- Vercel Analytics and Speed Insights mount globally.
+- Web Vitals reporting starts globally.
+- No unmeasured Lighthouse, timing, or bundle-size target is asserted as a current result.
 
-## Next Steps
+## Remaining environment-dependent verification
 
-1. **Deploy to Production**:
-   - Choose deployment platform
-   - Configure domain and SSL
-   - Set up monitoring
+- `bunx convex codegen` requires `CONVEX_DEPLOYMENT`.
+- Live authenticated and webhook flows require real Clerk/Convex configuration.
+- A Vercel Preview deployment is required to verify platform content types, cache behavior, filesystem precedence, and nested-route refreshes.
 
-2. **Future Enhancements** (Post-MVP):
-   - User accounts and cloud sync
-   - Collaborative lists
-   - AI-powered packing suggestions
-   - Weather-based recommendations
-   - Barcode scanning
-   - Multi-language support
+## Historical context
 
-3. **Monitoring Setup**:
-   - Analytics integration
-   - Error tracking (Sentry)
-   - Performance monitoring
-   - User feedback collection
-
-## Project Statistics
-
-- **Total Tasks Completed**: 11/11 (100%)
-- **Total Subtasks Completed**: 33/33 (100%)
-- **High Priority Tasks**: 7 completed
-- **Medium Priority Tasks**: 4 completed
-- **Files Created/Modified**: 100+
-- **Components Built**: 30+
-- **Features Implemented**: 15+
-
-## Conclusion
-
-The Pack List application has been successfully developed with all planned features implemented and production-ready. The application provides a comprehensive packing list management system with excellent user experience, mobile responsiveness, and performance optimization.
-
-The project demonstrates:
-- Modern React development with Next.js 14
-- Type-safe development with TypeScript
-- Responsive and accessible UI design
-- Progressive Web App capabilities
-- Performance-optimized architecture
-- Clean code organization
-
----
-
-**Project Completed**: September 01, 2025
-**Ready for Production Deployment** ✅
+The September 2025 project narrative described a different client-local architecture. It is not operational guidance. Historical specifications and SDD records remain in place as migration evidence and should not be rewritten to claim current runtime behavior.

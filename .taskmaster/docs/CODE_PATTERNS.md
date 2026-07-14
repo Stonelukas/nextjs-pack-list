@@ -1,861 +1,375 @@
-# task-master-init - Code Patterns & Snippets
+# Code Patterns
 
-Reusable code patterns and snippets for common development tasks in task-master-init.
+## Project layout
 
-## Table of Contents
-1. [Project Conventions](#project-conventions)
-2. [Common Patterns](#common-patterns)
-3. [Error Handling](#error-handling)
-4. [Testing Patterns](#testing-patterns)
-5. [Performance Patterns](#performance-patterns)
-6. [Security Patterns](#security-patterns)
+```text
+src/
+├── main.tsx
+├── app/                         # providers, routes, layouts, guards, boundaries
+├── features/
+│   ├── auth/
+│   ├── lists/                   # route modules, typed hooks, pure adapters
+│   ├── templates/
+│   ├── settings/
+│   ├── admin/
+│   ├── legacy-migration/
+│   └── shared/
+├── components/
+├── providers/
+├── store/navigation-store.ts    # presentation only
+└── lib/
 
----
+convex/
+├── lib/                         # auth, authorization, errors, validation
+├── lists.ts / templates.ts
+├── users.ts / settings.ts
+├── migrations.ts / http.ts
+└── schema.ts
+```
 
-## Project Conventions
+## Vite source module contract
 
-### Naming Conventions
-```typescript
-// Files: kebab-case for components, camelCase for utilities
-// pack-list-component.tsx, usePackListStore.ts
+Do not add top-level `"use client"` or `'use client'` directives. They are Next/RSC client-boundary markers, not Vite requirements. `src/app/task-6-source-contracts.test.ts` recursively scans retained non-test JavaScript/TypeScript source and rejects either quote style, an optional semicolon, and surrounding horizontal whitespace.
 
-// Variables and Functions: camelCase
-const currentListId = 'list-123';
-const handleCreateList = () => {};
+## Provider composition
 
-// Constants: UPPER_SNAKE_CASE
-const STORAGE_KEYS = {
-  PACK_LIST: 'pack-list-storage',
-  USER_PREFERENCES: 'user-preferences'
-} as const;
+```tsx
+<RootErrorBoundary>
+  <ThemeProvider>
+    <RuntimeConfigurationProvider value={runtimeConfiguration}>
+      {configured ? (
+        <ClerkProvider publishableKey={env.clerkPublishableKey}>
+          <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+            <AuthReadinessProvider
+              providerAttempt={providerAttempt}
+              retry={retryProviders}
+            >
+              <ConvexUserBootstrap>
+                <PreferenceThemeSync />
+                <RouterProvider router={router} />
+              </ConvexUserBootstrap>
+            </AuthReadinessProvider>
+          </ConvexProviderWithClerk>
+        </ClerkProvider>
+      ) : (
+        <UnavailableAuthReadinessProvider retry={retryProviders}>
+          <RouterProvider router={router} />
+        </UnavailableAuthReadinessProvider>
+      )}
+    </RuntimeConfigurationProvider>
+  </ThemeProvider>
+</RootErrorBoundary>
+```
 
-// Types and Interfaces: PascalCase
-interface PackListStore { }
-type Priority = 'low' | 'medium' | 'high' | 'essential';
+Initialize Sentry before mounting React. Do not recreate identity or authorization in a parallel client provider. The bootstrap is state-only: it always renders children, calls `users.ensureCurrentUser` once per `userId:attempt`, retains `startedForUser` across StrictMode effect replay, ignores stale completions, and converts signed-in Convex authentication/provisioning that remains pending for 15 seconds into a retryable mapped error. Clear the timer on ready, error, retry, and unmount. `RequireAuth` owns all protected loading and recovery UI. `AppProviders` receives its router explicitly; production `App` supplies the browser router, while shared render helpers supply a memory router and call the same `AppProviders` rather than duplicating provider markup. Test options may provide a configured or unconfigured `RuntimeEnvResult`. Mount the preference-querying child only after bootstrap is ready, and keep the last server preference in the outer component so an unchanged Convex value cannot overwrite an unsaved local appearance draft.
 
-// Enums: PascalCase with UPPER_SNAKE_CASE values
-enum Priority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  ESSENTIAL = 'essential'
+## Provider-safe shared header
+
+Keep the readiness hook in the outer component and every provider-dependent hook/control in the ready signed-in child:
+
+```tsx
+export function Header() {
+  const auth = useAuthReadiness();
+  return auth.status === "ready" && auth.isSignedIn
+    ? <ReadySignedInHeader />
+    : <PublicHeader />;
+}
+
+function ReadySignedInHeader() {
+  const access = useRoleBasedAccess();
+  return <HeaderFrame accountControl={<UserButton />} /* filtered items */ />;
 }
 ```
 
-### File Organization
-```
-pack-list/src/
-├── app/                    # Next.js App Router pages
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Homepage
-│   └── lists/             # List pages
-├── components/            # React components
-│   ├── ui/               # Base UI components (Shadcn)
-│   ├── lists/            # List-specific components
-│   ├── templates/        # Template components
-│   └── mobile/           # Mobile-specific components
-├── store/                # State management
-│   └── usePackListStore.ts
-├── types/                # TypeScript definitions
-│   └── index.ts
-├── hooks/                # Custom React hooks
-├── lib/                  # Utility functions
-└── constants/            # Application constants
+`PublicHeader`, loading, unavailable, and unconfigured branches must not call `useRoleBasedAccess`, Clerk account hooks, or Convex-querying navigation code. `RootLayout` may therefore mount `Header` unconditionally. Keep one-line branding, direct React Router links, 44-pixel targets (including a wrapper that expands Clerk's account button), the existing mobile sheet focus behavior, and the same permission filtering in the signed-in child.
 
-.taskmaster/
-├── docs/                 # Documentation
-├── tasks/                # Task database
-├── config.json          # AI configuration
-└── reports/              # Analysis reports
-```
+## Lazy React Router module
 
----
-
-## Common Patterns
-
-### Zustand Store Pattern
-```typescript
-/**
- * Pattern Name: Zustand Store with Immer and Persistence
- * Use Case: Global state management with immutable updates and local storage
- * Benefits: Type-safe, performant, automatic persistence, immutable updates
- */
-
-// Implementation
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
-
-interface StoreState {
-  data: DataType[];
-  currentId: string | null;
-
-  // Actions
-  createItem: (item: CreateInput) => string;
-  updateItem: (id: string, updates: Partial<DataType>) => void;
-  deleteItem: (id: string) => void;
+```tsx
+{
+  path: "lists/:id",
+  lazy: async () => {
+    const route = await import("@/features/lists/list-detail-page");
+    return { Component: route.ListDetailPage };
+  },
 }
+```
 
-export const useStore = create<StoreState>()(
-  persist(
-    immer((set, get) => ({
-      data: [],
-      currentId: null,
+Keep Clerk components under `/sign-in/*` and `/sign-up/*`. Keep `/admin` below both `RequireAuth` and `RequireAdmin`. Put only connected public data routes such as `/templates` below `RequireConfiguredRuntime`; configured state renders the lazy child and unconfigured state renders provider-independent recovery without changing the URL or lazy module path.
 
-      createItem: (item) => {
-        const id = generateId();
-        set(state => {
-          state.data.push({ ...item, id, createdAt: new Date() });
-        });
-        return id;
-      },
+`RequireAuth` evaluates states in this order: auth loading, auth unavailable, ready signed-out redirect, bootstrap idle/loading, bootstrap error, then protected children. Preserve `pathname + search + hash` before encoding the sign-in return URL. `RootLayout` uses the same auth/bootstrap contexts and mounts authenticated navigation, migration, and mobile shells only when both boundaries are ready.
 
-      updateItem: (id, updates) => set(state => {
-        const item = state.data.find(item => item.id === id);
-        if (item) {
-          Object.assign(item, updates, { updatedAt: new Date() });
-        }
-      }),
+## Public-first home and auth surfaces
 
-      deleteItem: (id) => set(state => {
-        state.data = state.data.filter(item => item.id !== id);
-      }),
-    })),
-    {
-      name: 'app-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+Keep `PublicHomePage` provider-independent. It accepts only presentation state and retry callbacks, uses `Link` for exact `/sign-up` and `/sign-in` navigation, and never imports Clerk or Convex:
+
+```typescript
+interface PublicHomePageProps {
+  authStatus: "loading" | "ready" | "unavailable";
+  accountStatus?: "idle" | "loading" | "error";
+  onRetryAuth?(): void;
+  onRetryAccount?(): void;
+}
+```
+
+`HomePage` is the only adapter over `useAuthReadiness()` and `useConvexUserBootstrap()`. Mount `ListOverview` only when auth is ready/signed-in and bootstrap is ready; render the complete landing for every other state, including account failure, and pass retry ownership to the failed boundary. `PublicHomePage` must own `<main id="main-content" tabIndex={-1}>`; when the non-authenticated pathname is `/`, `RootLayout` renders the outlet directly so the composed page has exactly one main landmark. Keep `RootLayout`'s shared main for navigation loading and every other public pathname, and keep the landing copy focused on trip preparation and a useful packing/checklist metaphor rather than provider details or operational labels.
+
+`AuthLayout` owns the responsive first-party auth composition plus loading/unavailable panels. Sign-in/up pages mount Clerk directly inside it. If auth is already signed in, redirect only to a single-slash internal `redirect_url` that is not another auth route; otherwise use `/lists`. `ClerkProvider` owns Route Ledger localization and the shared `clerkAppearance`. Use explicit Clerk style objects for provider text, inputs, buttons, and account navigation because Clerk's generated CSS can outrank utility-class strings. Pass the same appearance to `UserProfile` so account management does not become a light vendor island inside the Graphite shell.
+
+## Friendly packing workspace composition
+
+Keep `ListOverview`'s hook/data/action behavior separate from presentation. The composition order is:
+
+```text
+PageHeader("My packing lists", spine="none")
+  -> QuickStartTemplates
+  -> <dl aria-label="Packing list statistics"> plain headline values
+  -> collection Section
+       -> search/sort/view/import/create toolbar
+       -> existing grid or empty state
+       -> existing load-more control
+```
+
+Stat tiles are not charts: use text tokens for labels/values, no trend or distribution language, no categorical/status colors, and proportional Geist numerals. Preserve the filtered-empty `hasMore` control. Group sidebar links under Lists, Organize, Recent, and Settings while retaining exact query matching and permissions; active links use the restrained accent surface. Shared cards are flat bordered surfaces with the shared `0.625rem` radius, while semantic statuses remain icon-plus-label with reserved colors.
+
+## Typed Convex query hook
+
+```typescript
+export function useList(listId: Id<"lists"> | null | undefined) {
+  const list = useQuery(api.lists.getList, listId ? { listId } : "skip");
+  return { list, loading: Boolean(listId) && list === undefined };
+}
+```
+
+Preserve query `undefined`; do not turn loading into an empty collection.
+
+## Bounded summary and full-data pagination
+
+Use `usePaginatedQuery` with the server-capped summary contract for dashboard, sidebar, and list-index surfaces. Summary rows contain ordinary-list metadata plus `categoryCount`, `itemCount`, and `packedCount`; they never contain nested categories/items or the storage-only `isTemplate`/`isPublic` compatibility fields. Query the compound `by_user_template` index with `isTemplate === false` so hiding the flag does not accidentally promote legacy template rows into the list UI. Expose explicit `hasMore`/`loadMore` state.
+
+Use the separate `getListExportPage`/`useListExportData` path only when complete nested account data is required, such as account export or cross-list category aggregation. It uses the same ordinary-list index, paginates oldest-first for deterministic export order, and loads all pages deliberately rather than restoring an unbounded all-lists query. Keep `getList` for one owned detail record and list routes only.
+
+## Bounded template summary and authorized detail
+
+Template browsing uses two capped metadata feeds and one selected-record detail query:
+
+```typescript
+const publicTemplates = usePaginatedQuery(
+  api.templates.getPublicTemplateSummaries,
+  {},
+  { initialNumItems: 50 },
 );
-
-// Usage Example
-const MyComponent = () => {
-  const { data, createItem, updateItem } = useStore();
-
-  const handleCreate = () => {
-    const id = createItem({ name: 'New Item' });
-    console.log('Created item:', id);
-  };
-
-  return <div>{/* Component JSX */}</div>;
-};
-
-// Anti-pattern (what NOT to do)
-// ❌ Don't mutate state directly
-// state.data.push(newItem); // This breaks immutability
-// ✅ Use Immer's draft state instead
-// set(state => { state.data.push(newItem); });
-```
-
-### React Component with Hooks Pattern
-```typescript
-/**
- * Pattern Name: Functional Component with Custom Hooks
- * Use Case: Reusable component logic with proper separation of concerns
- * Benefits: Testable, reusable, follows React best practices
- */
-
-// Custom Hook
-export const useListManagement = (listId: string) => {
-  const { lists, updateList, addCategory, addItem } = usePackListStore();
-  const [loading, setLoading] = useState(false);
-
-  const list = useMemo(() =>
-    lists.find(l => l.id === listId),
-    [lists, listId]
-  );
-
-  const handleAddCategory = useCallback(async (name: string) => {
-    setLoading(true);
-    try {
-      const categoryId = addCategory(listId, {
-        name,
-        color: generateColor(),
-        order: list?.categories.length || 0,
-        items: [],
-      });
-      return categoryId;
-    } finally {
-      setLoading(false);
-    }
-  }, [listId, addCategory, list?.categories.length]);
-
-  return {
-    list,
-    loading,
-    handleAddCategory,
-  };
-};
-
-// Component Implementation
-interface ListDetailProps {
-  listId: string;
-}
-
-export const ListDetail: React.FC<ListDetailProps> = ({ listId }) => {
-  const { list, loading, handleAddCategory } = useListManagement(listId);
-
-  if (!list) {
-    return <div>List not found</div>;
-  }
-
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{list.name}</h1>
-      {list.categories.map(category => (
-        <CategoryComponent key={category.id} category={category} />
-      ))}
-      <Button
-        onClick={() => handleAddCategory('New Category')}
-        disabled={loading}
-      >
-        Add Category
-      </Button>
-    </div>
-  );
-};
-
-// Anti-pattern (what NOT to do)
-// ❌ Don't put all logic in component
-// ❌ Don't forget memoization for expensive calculations
-// ❌ Don't use inline functions in JSX for event handlers
-```
-
-### Error Boundary Pattern
-```typescript
-/**
- * Pattern Name: React Error Boundary with Fallback UI
- * Use Case: Graceful error handling in React components
- * Benefits: Prevents app crashes, provides user-friendly error messages
- */
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-}
-
-export class ErrorBoundary extends React.Component<
-  React.PropsWithChildren<{}>,
-  ErrorBoundaryState
-> {
-  constructor(props: React.PropsWithChildren<{}>) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
-    // Log to error reporting service
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="error-fallback">
-          <h2>Something went wrong</h2>
-          <p>{this.state.error?.message}</p>
-          <button onClick={() => this.setState({ hasError: false })}>
-            Try again
-          </button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-// Usage Example
-<ErrorBoundary>
-  <PackListApp />
-</ErrorBoundary>
-```
-
-### Performance Monitoring Hook Pattern
-```typescript
-/**
- * Pattern Name: Performance Monitoring Hook
- * Use Case: Track component render times and performance metrics
- * Benefits: Identify performance bottlenecks, optimize user experience
- */
-
-interface PerformanceMetrics {
-  renderTime: number;
-  componentName: string;
-  timestamp: Date;
-}
-
-export const usePerformanceMonitor = (componentName: string) => {
-  const metricsRef = useRef<PerformanceMetrics[]>([]);
-
-  const measureRender = useCallback(<T>(fn: () => T): T => {
-    const start = performance.now();
-    const result = fn();
-    const end = performance.now();
-
-    metricsRef.current.push({
-      renderTime: end - start,
-      componentName,
-      timestamp: new Date(),
-    });
-
-    // Log slow renders
-    if (end - start > 16) { // 60fps threshold
-      console.warn(`Slow render in ${componentName}: ${end - start}ms`);
-    }
-
-    return result;
-  }, [componentName]);
-
-  const getMetrics = useCallback(() => metricsRef.current, []);
-
-  return { measureRender, getMetrics };
-};
-
-// Usage Example
-const ExpensiveComponent = () => {
-  const { measureRender } = usePerformanceMonitor('ExpensiveComponent');
-
-  const expensiveCalculation = useMemo(() =>
-    measureRender(() => {
-      // Expensive computation
-      return heavyCalculation();
-    }),
-    [measureRender]
-  );
-
-  return <div>{expensiveCalculation}</div>;
-};
-```
-
-### Command Pattern for CLI Operations
-```typescript
-/**
- * Pattern Name: Command Pattern for Task Master CLI
- * Use Case: Encapsulate CLI operations as objects for undo/redo, logging
- * Benefits: Extensible, testable, supports complex workflows
- */
-
-interface Command {
-  execute(): Promise<void>;
-  undo?(): Promise<void>;
-  description: string;
-}
-
-class CreateTaskCommand implements Command {
-  description = 'Create new task';
-
-  constructor(
-    private taskData: CreateTaskInput,
-    private taskService: TaskService
-  ) {}
-
-  async execute(): Promise<void> {
-    const task = await this.taskService.createTask(this.taskData);
-    console.log(`Created task: ${task.title} (${task.id})`);
-  }
-
-  async undo(): Promise<void> {
-    // Implementation for undo
-  }
-}
-
-class UpdateTaskStatusCommand implements Command {
-  description: string;
-
-  constructor(
-    private taskId: string,
-    private newStatus: TaskStatus,
-    private taskService: TaskService
-  ) {
-    this.description = `Update task ${taskId} status to ${newStatus}`;
-  }
-
-  async execute(): Promise<void> {
-    await this.taskService.updateTaskStatus(this.taskId, this.newStatus);
-    console.log(`Updated task ${this.taskId} status to ${this.newStatus}`);
-  }
-}
-
-// Command Invoker
-class TaskMasterCLI {
-  private history: Command[] = [];
-
-  async executeCommand(command: Command): Promise<void> {
-    try {
-      await command.execute();
-      this.history.push(command);
-    } catch (error) {
-      console.error(`Failed to execute: ${command.description}`, error);
-      throw error;
-    }
-  }
-
-  async undoLastCommand(): Promise<void> {
-    const lastCommand = this.history.pop();
-    if (lastCommand?.undo) {
-      await lastCommand.undo();
-    }
-  }
-}
-
-// Usage Example
-const cli = new TaskMasterCLI();
-const createCommand = new CreateTaskCommand(
-  { title: 'New Task', description: 'Task description' },
-  taskService
+const ownedTemplates = usePaginatedQuery(
+  api.templates.getOwnedTemplateSummaries,
+  currentUser ? {} : "skip",
+  { initialNumItems: 50 },
 );
-
-await cli.executeCommand(createCommand);
-```
-
-### Template Method Pattern for AI Providers
-```typescript
-/**
- * Pattern Name: Template Method for AI Provider Integration
- * Use Case: Standardize AI provider interactions while allowing customization
- * Benefits: Consistent interface, easy to add new providers
- */
-
-abstract class AIProvider {
-  abstract providerName: string;
-  abstract apiKey: string;
-
-  // Template method
-  async generateResponse(prompt: string, options: AIOptions): Promise<string> {
-    this.validateInput(prompt, options);
-    const formattedPrompt = this.formatPrompt(prompt, options);
-    const response = await this.callAPI(formattedPrompt, options);
-    return this.processResponse(response);
-  }
-
-  protected validateInput(prompt: string, options: AIOptions): void {
-    if (!prompt.trim()) {
-      throw new Error('Prompt cannot be empty');
-    }
-    if (!this.apiKey) {
-      throw new Error(`API key required for ${this.providerName}`);
-    }
-  }
-
-  protected abstract formatPrompt(prompt: string, options: AIOptions): string;
-  protected abstract callAPI(prompt: string, options: AIOptions): Promise<any>;
-  protected abstract processResponse(response: any): string;
-}
-
-class AnthropicProvider extends AIProvider {
-  providerName = 'Anthropic';
-  apiKey = process.env.ANTHROPIC_API_KEY!;
-
-  protected formatPrompt(prompt: string, options: AIOptions): string {
-    return `Human: ${prompt}\n\nAssistant:`;
-  }
-
-  protected async callAPI(prompt: string, options: AIOptions): Promise<any> {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: options.modelId || 'claude-3-sonnet-20240229',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: options.maxTokens || 4000,
-      }),
-    });
-
-    return response.json();
-  }
-
-  protected processResponse(response: any): string {
-    return response.content[0].text;
-  }
-}
-
-// Usage Example
-const provider = new AnthropicProvider();
-const response = await provider.generateResponse(
-  'Analyze this task complexity',
-  { modelId: 'claude-3-sonnet-20240229', maxTokens: 1000 }
+const detail = useQuery(
+  api.templates.getTemplate,
+  templateId ? { templateId } : "skip",
 );
 ```
-    }
-    
-    public addPartB(): this {
-        // Add part B
-        return this;
-    }
-    
-    public build(): Product {
-        return this.product;
-    }
-}
 
-// Usage
-const product = new Builder()
-    .addPartA()
-    .addPartB()
-    .build();
+Summary records contain denormalized `categoryCount` and `itemCount`, explicit `isOwned`, and never load children or expose the stable `createdBy` document ID. Merge public and owned pages by branded template ID because an owner's public template appears in both feeds, and expose explicit load-more/loading-more state in the library. Resolve optional identity before detail lookup: anonymous private and missing IDs both map to `NOT_FOUND`; authenticated private access resolves the current user before protected lookup. Load canonical `templateCategories`/`templateItems` only for the selected public-or-owned template, wait for that detail before preview or apply, cap child reads before materialization, and retain name-only item grouping solely as a bounded compatibility path.
+
+Template cards are flex columns that fill the grid cell. Give title/description, tag, and metric regions bounded minimum heights and use `mt-auto` on the footer so sparse and rich metadata align. Render the optional stored icon in a fixed decorative tile and provide an icon-only package fallback for custom templates without metadata.
+
+Template create/import/seed writes must populate summary counts. Run public-owner quota validation immediately after ownership authorization, then read categories and items sequentially with a remaining aggregate capacity so the source cannot fan out to thousands of records before the 1,000-item check. A cursor-sized internal backfill repairs older count-less rows and rebuilds `templateStats`. Applying a template reuses the authorized bounded detail loader so malformed legacy children cannot be copied into a list.
+
+Keep predefined templates backend-owned in `convex/lib/official_templates.ts`. `internal.templates.seedTemplates` must query official records, match by canonical name, insert only missing definitions, and return inserted/skipped totals. Never seed from browser startup or copy development database IDs into production; Convex environments do not share data. After a fresh production deployment or catalog expansion, invoke the internal seed through authenticated Convex CLI tooling and verify the public summary count.
+
+For complete account backup, use `getOwnedTemplateExportPage` through `useOwnedTemplateExportData`. Auto-request each five-record full-detail page until status is `Exhausted`; return `undefined` while any page remains and enable the export action only after both list and template export hooks are complete.
+
+## Shared semantic validation
+
+`convex/lib/validation.ts` is the canonical write boundary for list/category/item create, update, atomic edit/move, duplicate metadata, nested import, template create/apply/detail validation, publication quota, and template count limits:
+
+- required names are trimmed, non-empty, and at most 200 characters;
+- optional text is at most 5,000 characters;
+- priorities are `low | medium | high | essential`;
+- quantities are positive integers;
+- weights are finite and non-negative;
+- records contain at most 50 trimmed, non-empty tags of at most 100 characters each.
+
+Authenticate/authorize first, normalize and validate every supplied field, then write. Return stable `VALIDATION` domain errors rather than relying on UI-only checks.
+
+Nested list JSON import shares `convex/lib/import_limits.ts` between the Zod parser and Convex mutation: at most 50 categories, 200 items per category, 1,000 total items, and 1,000,000 UTF-8 bytes. Run structural and byte preflight before the list insert so the transaction either writes the complete import or nothing.
+
+## Typed Convex action hook
+
+```typescript
+type UpdateListInput = FunctionArgs<typeof api.lists.updateList>;
+
+const updateList = useCallback(
+  (input: UpdateListInput, options?: AsyncActionOptions) =>
+    runAction(() => updateListMutation(input), options),
+  [runAction, updateListMutation],
+);
 ```
 
----
+Rules:
 
-## Error Handling
+- Preserve branded `Id<>` values end to end.
+- Mirror generated argument objects.
+- Never inject `clerkId`, `userId`, email, or role.
+- Use `{ rethrow: true }` when a caller coordinates several writes or owns dialog close/reset behavior.
+- Map errors for presentation and close only after success.
+- Put a synchronous `useRef` in-flight guard at form/dialog submission boundaries. React pending state disables controls after render, but it cannot by itself stop two submit events dispatched in the same turn. Do not apply this guard to quantity steppers: each click is an intentional atomic delta.
 
-### Custom Error Types
+## Server authorization
+
 ```typescript
-class CustomError extends Error {
-    constructor(message: string, public code: string) {
-        super(message);
-        this.name = 'CustomError';
-    }
-}
-
-// Usage
-throw new CustomError('Something went wrong', 'ERR_001');
+const user = await requireCurrentUser(ctx);
+const list = await requireOwnedList(ctx, args.listId);
+const { category, list: categoryList } = await requireOwnedCategory(
+  ctx,
+  args.categoryId,
+);
 ```
 
-### Error Handling Pattern
+Authenticate before resource lookup. Traverse `item -> category -> list -> user`; do not trust redundant client ownership fields. Only `requireAdmin` grants administrator operations.
+
+## Atomic batch mutation
+
+Load and validate every referenced record before the first write. Reject missing, duplicate, foreign, or wrong-parent IDs. Then patch/insert within the one Convex transaction.
+
+Use complete atomic mutations for item creation, list import, template application, reorder, and moves rather than client-orchestrated partial sequences.
+
+For item editing, derive the item's current category from the loaded category collection. Omit `toCategoryId`/`toIndex` for same-category field edits so siblings keep their order and timestamps; include both fields only for a real category change. Use an own-property check for weight: omitted means unchanged, numeric means set, and `null` means clear to `undefined` in the Convex patch. Validate the owned item, every supplied field, destination ownership, and destination index before patching any item/order. Quantity steppers call `adjustItemQuantity({ itemId, delta })`; the mutation reads the current authoritative quantity and validates the resulting positive integer inside the transaction.
+
+Public add-category/add-item mutations compute `max(order) + 1`, and category updates do not accept order. Exact-set reorder mutations are the only public path that can rewrite sibling order.
+
+## Resumable deletion and bounded administration
+
+Large ownership graphs must not be deleted in one mutation. Create or reuse a `userDeletionJobs` record, schedule `internal.users.continueUserDeletion`, and remove one bounded child/link batch per invocation. Delete template items, template categories, template parents, list items/categories/shares/parents, preferences/import records, user-related shares/moderator references, then the user and job. Clerk and admin deletion both start the same workflow; tests must drain scheduled functions before asserting final removal.
+
+Reject current-administrator deletion before starting that workflow. `requireAdmin` returns the authenticated database user, so compare its `_id` with the requested target at the Convex boundary. Keep destructive browser actions disabled while `getCurrentUser` is unresolved and for the matching user after resolution; this is explanatory UX, not the security control.
+
+Administrative user collections follow the same bounded rule as lists/templates/moderation: require `paginationOptsValidator`, return `paginate(...)`, and consume them with `usePaginatedQuery`. If search is client-side, label it as filtering only the rows loaded so far and keep the load-more control reachable.
+
+For immediate admin edit reopen, return the updated user and exact `updatedAt` from the Convex mutation. A client override may bridge only while a reactive table/details row is older; discard it as soon as the authoritative row has an equal or newer timestamp. Never let optimistic UI state permanently supersede Convex.
+
+Maintain template total/usage counters in the singleton `templateStats` row from every create/apply/import/seed/backfill/delete path. Analytics reads that aggregate and queries `templates.by_usage` descending with `take(10)` rather than collecting the template table in each dashboard query.
+
+Moderation queue reads use `paginationOptsValidator`, page-size validation, `by_status` or `by_status_content_type`, and `usePaginatedQuery` with a visible load-more control. Derive client item unions from `FunctionReturnType<typeof api.moderation.getModerationQueue>`. Guard confirmation with a synchronous ref, disable confirm/cancel and dialog closure while pending, and keep mapped errors open.
+
+## Preference-gated settings state
+
+Do not materialize editable defaults while `usePreferences()` is unresolved. Derive the draft only after loading is false and the server returns either preferences or confirmed `null`; disable preference/theme controls and Save until then. Include preference loading in account-export readiness together with exhaustive list and owner-template export hooks.
+
+## Signed webhook to internal mutation
+
 ```typescript
-async function safeOperation<T>(
-    operation: () => Promise<T>,
-    fallback?: T
-): Promise<T | undefined> {
-    try {
-        return await operation();
-    } catch (error) {
-        console.error('Operation failed:', error);
-        return fallback;
-    }
-}
+const verified = new Webhook(secret).verify(rawBody, svixHeaders);
+await ctx.runMutation(internal.users.upsertFromClerk, mapClerkUser(verified.data));
 ```
 
-### Result Type Pattern
+The signed HTTP action is the trust boundary. Browser callers cannot call synchronization functions or choose roles.
+
+## Presentation-only Zustand
+
+Persist only navigation/display preferences. Derive active route, breadcrumbs, and history from React Router. Never mirror Convex domain collections or create an offline mutation queue in Zustand/local storage.
+
+## Legacy import boundary
+
+- Read only `pack-list-storage`.
+- Preserve exact raw text for recovery.
+- Normalize records independently and retain `{ path, reason, raw }` rejections.
+- Compute the shared deterministic fingerprint from server-valid data.
+- Compare the current raw value with the preview snapshot before import and cleanup.
+- Model source reads as `found`, `missing`, or `inaccessible`.
+- Commit through one authenticated `migrations.importLegacyData` mutation.
+- Insert user-scoped completion last; offer explicit cleanup only after confirmed success.
+
+## PWA shell-only pattern
+
 ```typescript
-type Result<T, E = Error> = 
-    | { success: true; value: T }
-    | { success: false; error: E };
-
-function divide(a: number, b: number): Result<number> {
-    if (b === 0) {
-        return { success: false, error: new Error('Division by zero') };
-    }
-    return { success: true, value: a / b };
-}
-```
-
----
-
-## Testing Patterns
-
-### Unit Test Template
-```typescript
-describe('FeatureName', () => {
-    // Setup
-    beforeEach(() => {
-        // Initialize test environment
-    });
-    
-    // Teardown
-    afterEach(() => {
-        // Clean up
-    });
-    
-    describe('methodName', () => {
-        it('should do something when condition', () => {
-            // Arrange
-            const input = 'test';
-            
-            // Act
-            const result = methodName(input);
-            
-            // Assert
-            expect(result).toBe('expected');
-        });
-        
-        it('should handle edge case', () => {
-            // Test edge cases
-        });
-        
-        it('should throw error when invalid', () => {
-            // Test error conditions
-        });
-    });
+VitePWA({
+  registerType: "prompt",
+  workbox: {
+    globPatterns: ["**/*.{js,css,html,woff,woff2}"],
+    navigateFallback: "/index.html",
+    runtimeCaching: [],
+    skipWaiting: false,
+    clientsClaim: false,
+  },
 });
 ```
 
-### Integration Test Template
-```typescript
-describe('Integration: Feature', () => {
-    let service: Service;
-    
-    beforeAll(async () => {
-        // Setup integration environment
-        service = await createService();
-    });
-    
-    afterAll(async () => {
-        // Cleanup
-        await service.cleanup();
-    });
-    
-    it('should integrate with external service', async () => {
-        // Test actual integration
-    });
-});
+Do not cache Convex responses, queue writes, or add Background Sync. Keep draft fields editable offline and disable only durable actions with visible reconnect guidance.
+
+## Vercel static SPA pattern
+
+```json
+{"$schema":"https://openapi.vercel.sh/vercel.json","framework":"vite","installCommand":"bun install --frozen-lockfile","buildCommand":"bun run build","outputDirectory":"dist","rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
 ```
 
-### Mock Pattern
-```typescript
-// Mock implementation
-class MockService implements IService {
-    public methodCalls: any[] = [];
-    
-    async method(param: string): Promise<string> {
-        this.methodCalls.push({ method: 'method', param });
-        return 'mocked response';
-    }
-}
+Rely on Vercel filesystem-before-rewrite handling. Do not add a server runtime, API route, `cleanUrls`, or competing `routes` configuration. Built-artifact smoke must parse `dist/index.html` to discover real hashed JavaScript/CSS, discover `workbox-*.js` by filename pattern, reject HTML/empty responses for every static asset, validate manifest/worker/icons, and byte-compare direct nested/unknown routes with `dist/index.html`; never hard-code generated hashes.
 
-// Usage in tests
-const mockService = new MockService();
-const component = new Component(mockService);
+## Two-stage Convex and Vercel release pattern
+
+Repository CI verifies the source revision but deploys neither platform. The Convex release owner selects the production target with one approved selector, reviews a dry run, and deploys with the Git SHA in the audit message:
+
+```bash
+REVISION="$(git rev-parse HEAD)"
+bunx convex deploy --dry-run --typecheck enable --message "route-ledger:$REVISION"
+bunx convex deploy --typecheck enable --message "route-ledger:$REVISION"
+bunx convex run templates:seedTemplates '{}' --prod --typecheck enable --codegen disable
 ```
 
----
+Verify function metadata, schema/index readiness, a signed Clerk webhook delivery, and an authenticated session before Vercel promotion. `VITE_CONVEX_URL` must name that exact deployment. Backend-first rollout is allowed only while the currently live frontend remains compatible; otherwise use a coordinated or backward-compatible rollout. Vercel and Convex have separate rollback owners.
 
-## Performance Patterns
+## Environment ownership
 
-### Memoization
-```typescript
-function memoize<T extends (...args: any[]) => any>(fn: T): T {
-    const cache = new Map();
-    
-    return ((...args: Parameters<T>) => {
-        const key = JSON.stringify(args);
-        
-        if (cache.has(key)) {
-            return cache.get(key);
-        }
-        
-        const result = fn(...args);
-        cache.set(key, result);
-        return result;
-    }) as T;
-}
+- Browser/public runtime: `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_CONVEX_URL`, optional `VITE_APP_URL`, optional `VITE_SENTRY_DSN`.
+- Convex CLI-managed local public metadata: optional `VITE_CONVEX_SITE_URL`; validate HTTPS (or localhost only in development), do not project it into runtime configuration, and do not require it in Vercel.
+- Vercel automatically exposes reserved build metadata as `VITE_VERCEL_*` when system-variable exposure is enabled. Permit that reserved namespace during build validation, but never project it into Route Ledger runtime configuration. Continue rejecting unknown application-owned `VITE_*` names.
+- Convex deployment: `CLERK_JWT_ISSUER_DOMAIN`, `CLERK_WEBHOOK_SECRET`.
+- Local linkage: `CONVEX_DEPLOYMENT`.
+- Approved backend release only: target-scoped `CONVEX_DEPLOY_KEY`.
+
+Never put a server secret behind `VITE_`, and never expose `CONVEX_DEPLOY_KEY` to repository test CI or the Vercel static build.
+
+## Deterministic test boundary
+
+Mount real routes, pages, components, and feature hooks. Replace only external Clerk React, Convex React transport, PWA registration, and Vercel telemetry edges. Keep generated Convex references real. Use `unavailableAuth()` only as unresolved external Clerk input (`isLoaded: false`); never encode final readiness in the mock because `AuthReadinessProvider` owns the ten-second unavailable projection. Run the client Vitest project with one file worker; concurrent jsdom lazy-route transforms can otherwise leave real routes indefinitely on their Suspense fallback under constrained CI. Keep Testing Library waits bounded at ten seconds and tests bounded at fifteen seconds instead of adding retries. Use Playwright Clock to fast-forward the real auth timeout, then assert Retry returns to connecting without removing the friendly landing. Keep Playwright at two workers and zero retries so the reported 37 journeys are first-attempt results rather than retry-masked outcomes.
+
+Vite e2e aliases require all of:
+
+- `command === "serve"`
+- `mode === "e2e"`
+- `isPreview !== true`
+- `ROUTE_LEDGER_E2E === "1"`
+
+Reject build/preview e2e mode and keep the flag without a `VITE_` prefix.
+
+## Repository CI gate pattern
+
+`.github/workflows/ci.yml` runs the deterministic repository boundary on pushes, pull requests, and manual dispatch:
+
+```text
+Bun 1.3.11
+  -> bun install --frozen-lockfile
+  -> bun run check
+  -> bun run test:build-smoke
+  -> bun run test:convex
+  -> bun run test:e2e:install:ci
+  -> bun run test:e2e
 ```
 
-### Debouncing
-```typescript
-function debounce<T extends (...args: any[]) => any>(
-    fn: T,
-    delay: number
-): (...args: Parameters<T>) => void {
-    let timeoutId: NodeJS.Timeout;
-    
-    return (...args: Parameters<T>) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => fn(...args), delay);
-    };
-}
+Keep deployment credentials out of this workflow. Playwright supplies deterministic Clerk/Convex test adapters through its server-only Vite mode, so CI needs no live Clerk, Convex, webhook, Vercel, deployment, or Sentry secrets and performs no deployment.
+
+## Verification commands
+
+```bash
+bun run check
+bun run test:convex
+bun run test:e2e:install      # first local run
+bun run test:e2e
+bun run build
+bun run preview --host 127.0.0.1 --port 4173
 ```
 
-### Throttling
-```typescript
-function throttle<T extends (...args: any[]) => any>(
-    fn: T,
-    limit: number
-): T {
-    let inThrottle = false;
-    
-    return ((...args: Parameters<T>) => {
-        if (!inThrottle) {
-            fn(...args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
-        }
-    }) as T;
-}
-```
+`bun run check` does not include Convex or Playwright.
 
----
-
-## Security Patterns
-
-### Input Validation
-```typescript
-function validateInput(input: unknown): string {
-    if (typeof input !== 'string') {
-        throw new Error('Input must be a string');
-    }
-    
-    // Sanitize
-    const sanitized = input.trim();
-    
-    // Validate length
-    if (sanitized.length < 1 || sanitized.length > 255) {
-        throw new Error('Input length must be between 1 and 255');
-    }
-    
-    // Validate pattern (example)
-    if (!/^[a-zA-Z0-9_-]+$/.test(sanitized)) {
-        throw new Error('Input contains invalid characters');
-    }
-    
-    return sanitized;
-}
-```
-
-### Secure Random
-```typescript
-function generateSecureToken(length: number = 32): string {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let token = '';
-    
-    for (let i = 0; i < length; i++) {
-        const randomIndex = Math.floor(Math.random() * charset.length);
-        token += charset[randomIndex];
-    }
-    
-    return token;
-}
-```
-
----
-
-## Async Patterns
-
-### Promise Chain Pattern
-```typescript
-function processSequentially<T>(
-    items: T[],
-    processor: (item: T) => Promise<void>
-): Promise<void> {
-    return items.reduce(
-        (promise, item) => promise.then(() => processor(item)),
-        Promise.resolve()
-    );
-}
-```
-
-### Parallel Processing
-```typescript
-async function processInParallel<T, R>(
-    items: T[],
-    processor: (item: T) => Promise<R>,
-    batchSize: number = 5
-): Promise<R[]> {
-    const results: R[] = [];
-    
-    for (let i = 0; i < items.length; i += batchSize) {
-        const batch = items.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
-            batch.map(processor)
-        );
-        results.push(...batchResults);
-    }
-    
-    return results;
-}
-```
-
-### Retry Pattern
-```typescript
-async function retry<T>(
-    fn: () => Promise<T>,
-    maxAttempts: number = 3,
-    delay: number = 1000
-): Promise<T> {
-    let lastError: Error;
-    
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-            return await fn();
-        } catch (error) {
-            lastError = error as Error;
-            
-            if (attempt < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, delay * attempt));
-            }
-        }
-    }
-    
-    throw lastError!;
-}
-```
-
----
-
-## Helper Functions
-
-### Deep Clone
-```typescript
-function deepClone<T>(obj: T): T {
-    if (obj === null || typeof obj !== 'object') {
-        return obj;
-    }
-    
-    if (obj instanceof Date) {
-        return new Date(obj.getTime()) as any;
-    }
-    
-    if (obj instanceof Array) {
-        return obj.map(item => deepClone(item)) as any;
-    }
-    
-    if (obj instanceof Object) {
-        const cloned = {} as T;
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-                cloned[key] = deepClone(obj[key]);
-            }
-        }
-        return cloned;
-    }
-    
-    return obj;
-}
-```
-
-### Deep Merge
-```typescript
-function deepMerge<T extends object>(target: T, ...sources: Partial<T>[]): T {
-    if (!sources.length) return target;
-    
-    const source = sources.shift();
-    if (!source) return target;
-    
-    for (const key in source) {
-        const sourceValue = source[key];
-        const targetValue = target[key];
-        
-        if (isObject(sourceValue) && isObject(targetValue)) {
-            target[key] = deepMerge(targetValue, sourceValue);
-        } else {
-            target[key] = sourceValue as any;
-        }
-    }
-    
-    return deepMerge(target, ...sources);
-}
-
-function isObject(item: any): item is object {
-    return item && typeof item === 'object' && !Array.isArray(item);
-}
-```
-
----
-
-## Project-Specific Patterns
-
-<!-- Add patterns specific to this project -->
-
----
-
-*Last Updated: September 01, 2025*
-*Add new patterns as they are discovered or created*
+_Last updated: July 14, 2026_

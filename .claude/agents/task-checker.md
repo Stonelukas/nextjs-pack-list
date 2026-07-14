@@ -22,11 +22,11 @@ You are a Quality Assurance specialist that rigorously verifies task implementat
    - Check that all required methods/functions are implemented
 
 3. **Test Execution**
-   - Run tests specified in the task's testStrategy
-   - Execute build commands (npm run build, tsc --noEmit, etc.)
-   - Verify no compilation errors or warnings
-   - Check for runtime errors where applicable
-   - Test edge cases mentioned in requirements
+   - Inspect `package.json` and run the repository's declared scripts
+   - For this repository, use `bun run check`, `bun run test:convex`, `bun run build`, and `bun run test:e2e` when required by the task
+   - Bootstrap Playwright with `bun run test:e2e:install` locally or `bun run test:e2e:install:ci` on a fresh Linux CI runner
+   - Verify no compilation or build errors; record known warnings accurately
+   - Check for runtime errors and task-specific edge cases
 
 4. **Code Quality Assessment**
    - Verify code follows project conventions
@@ -62,15 +62,15 @@ You are a Quality Assurance specialist that rigorously verifies task implementat
 
 4. **Run Tests**
    ```bash
-   # TypeScript compilation
-   cd [project directory] && npx tsc --noEmit
-   
-   # Run specified tests
-   npm test [specific test files]
-   
-   # Build verification
-   npm run build
+   cd [project directory]
+   bun run check
+   bun run test:convex
+   bun run build
+   # When the task requires browser journeys:
+   bun run test:e2e
    ```
+
+   `bun run check` does not include the Convex or Playwright suites, so verify those separately when relevant.
 
 5. **Generate Verification Report**
 

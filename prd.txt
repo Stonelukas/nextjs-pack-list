@@ -1,3 +1,7 @@
+# Historical product requirements (archived)
+
+This document captures the original Pack-List product direction and its former Next.js implementation assumptions. It is retained as historical product context only. Current architecture, routes, deployment, security, persistence, and verification requirements are defined by `CLAUDE.md`, `README.md`, and `.taskmaster/docs/INDEX.md`.
+
 # Overview  
 Pack-List is a modern web application designed to help users create, manage, and organize packing lists for various activities and trips. It solves the common problem of forgetting essential items when packing by providing customizable, reusable templates and intelligent suggestions. The app targets travelers, outdoor enthusiasts, and anyone who needs to organize items for specific activities or events.
 
