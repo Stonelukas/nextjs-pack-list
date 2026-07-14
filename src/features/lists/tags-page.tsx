@@ -1,19 +1,54 @@
 import { Tag } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLists } from "@/features/lists/hooks/use-lists";
+import { useListExportData } from "@/features/lists/hooks/use-lists";
 import { summarizeTags } from "@/features/lists/list-model";
 import { useTemplates } from "@/features/templates/hooks/use-templates";
 
 export function TagsPage() {
-  const { lists, loading: listsLoading } = useLists();
-  const { templates, loading: templatesLoading } = useTemplates();
-  const summaries = summarizeTags(lists ?? [], templates ?? []);
-  if (listsLoading || templatesLoading) return <p className="py-20 text-center text-muted-foreground">Loading tag registry…</p>;
+  const { lists, loading: listsLoading } = useListExportData();
+  const {
+    templates,
+    loading: templatesLoading,
+    loadingMore: templatesLoadingMore,
+    canLoadMore: templatesCanLoadMore,
+    loadMore: loadMoreTemplates,
+  } = useTemplates();
+
+  useEffect(() => {
+    if (
+      !templatesLoading &&
+      !templatesLoadingMore &&
+      templatesCanLoadMore
+    ) {
+      loadMoreTemplates();
+    }
+  }, [
+    loadMoreTemplates,
+    templatesCanLoadMore,
+    templatesLoading,
+    templatesLoadingMore,
+  ]);
+
+  if (
+    listsLoading ||
+    templatesLoading ||
+    templatesLoadingMore ||
+    templatesCanLoadMore
+  ) {
+    return (
+      <p className="py-20 text-center text-muted-foreground">
+        Loading tag registry…
+      </p>
+    );
+  }
+
+  const summaries = summarizeTags(lists ?? [], templates);
 
   return (
     <div className="overview-frame py-6 md:py-10">
