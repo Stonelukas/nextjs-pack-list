@@ -157,8 +157,10 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 - `deleteUser` rejects the authenticated administrator's own user ID before creating a deletion job. Destructive row actions remain disabled until current-user identity resolves and stay disabled for the matching account. `updateUser` returns the authoritative updated record; the client uses it only while a table/details query row has an older `updatedAt`, then discards the override when Convex catches up or returns a newer value.
 - Clerk and admin deletion create a resumable `userDeletionJobs` record and remove template/list descendants, linked moderation/history, shares, preferences, imports, and the user through scheduled batches rather than one unbounded mutation.
 - Template totals and usage live in the bounded `templateStats` aggregate; popular templates use `by_usage` descending with `take(10)`, so the analytics dashboard no longer multiplies full template-table scans.
+- Real-time dashboard list activity also uses `lists.by_template(false)`, preserving ordinary-list-only metrics when migrated deployments still contain legacy template rows.
 - Moderation queues use validated cursor pagination and status/content-type indexes. The client exposes load-more, derives preview item types from the generated queue return, renders separate list/template details, and guards confirmation against repeated submission while pending.
 - Settings waits for preferences, full list export pages, and full owner-template export pages before enabling save/export. Unresolved preferences never fall back to editable defaults, and account backups contain nested template categories/items across every page.
+- Settings controls its active tab from the validated `section` search parameter, updates that parameter on tab changes, and reacts when a same-route migration link changes only the URL search string.
 
 ## Deterministic testing
 
@@ -166,8 +168,8 @@ This catalog describes the active Route Ledger implementation. Historical migrat
 
 **Files:** `src/test/`, `e2e/`, `playwright.config.ts`, `vitest.config.ts`, Convex `*.test.ts` files, `.github/workflows/ci.yml`.
 
-- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 380 tests across 88 files.
-- `convex-test` verifies actual server authorization, webhook, migration, deletion batching, pagination, aggregate, domain behavior, and deployable module paths. The current full Convex gate passes 142 tests across eight files.
+- Client Vitest mounts the real route tree and replaces only external Clerk/Convex/PWA/Vercel edges. Shared render helpers delegate to the real `AppProviders` with an explicit memory router and configurable runtime result, covering both configured and provider-independent unconfigured branches. One file worker and bounded async/test timeouts prevent resource-dependent lazy-route false failures; the current full client gate passes 381 tests across 88 files.
+- `convex-test` verifies actual server authorization, webhook, migration, deletion batching, pagination, aggregate, domain behavior, and deployable module paths. The current full Convex gate passes 143 tests across eight files.
 - Playwright runs 37 desktop/mobile Chromium journeys through the existing server-only flagged Vite e2e boundary with two workers and zero retries. Clock-controlled auth readiness coverage keeps the complete landing visible through the real ten-second timeout and Retry, while responsive coverage proves landing/auth/dashboard geometry and 44px primary targets at 390×844.
 - Production-build contracts prevent test aliases from entering normal bundles.
 - Public build validation accepts the Convex CLI-managed HTTPS `VITE_CONVEX_SITE_URL` only as non-runtime HTTP-actions metadata; unknown `VITE_*` values remain rejected.

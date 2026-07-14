@@ -271,7 +271,7 @@ User-created and imported templates permit at most 50 categories, 200 items per 
 
 `internal.templates.seedTemplates({})` synchronizes the backend-owned catalog in `convex/lib/official_templates.ts`. The canonical catalog contains nine public official templates, 39 categories, and 264 items. It matches existing official templates by name, inserts only missing definitions, returns `{ inserted, skipped, total }`, and starts bounded metadata/stat repair. It is callable only through trusted Convex tooling, never from the browser.
 
-- `usePreferences()` returns current-user preferences and an update action. Settings keeps controls and account export disabled while preferences are unresolved.
+- `usePreferences()` returns current-user preferences and an update action. Settings keeps controls and account export disabled while preferences are unresolved. The settings tab is controlled by the validated `section` search parameter; in-app tab changes replace that parameter, and same-route links such as `?section=migration` update the already-mounted page.
 - `useAdminAccess()` returns loading, authenticated, role, and `isAdmin` projections.
 
 ## Clerk synchronization
@@ -332,7 +332,7 @@ getModerationQueue(args: {
 
 `getAllUsers` has no unbounded branch; the client requests 50-record pages and filters only loaded rows. `deleteUser` requires an explicit admin and rejects the authenticated administrator's own user ID before scheduling deletion. `updateUser` returns the post-patch authoritative user with its exact `updatedAt`, allowing a short-lived client bridge that is discarded once reactive queries catch up. User details count lists from `lists.by_user_template(userId, false)` and templates from `templates.by_creator`; recent list DTOs omit `isTemplate`/`isPublic`. Moderation queue items form a generated discriminated union for list, template, user-profile, and category content. Template preview fields are canonical (`isPublic`, category, difficulty, season, duration); list completion is list-only.
 
-`templateStats` stores singleton `{ key: "global", totalTemplates, totalUsage, updatedAt }`. Template analytics reads that aggregate and `templates.by_usage` descending with `take(10)` rather than scanning every template.
+`templateStats` stores singleton `{ key: "global", totalTemplates, totalUsage, updatedAt }`. Template analytics reads that aggregate and `templates.by_usage` descending with `take(10)` rather than scanning every template. Dashboard list activity reads `lists.by_template(false)`, so legacy template rows cannot inflate active-user, creation, or completion metrics.
 
 ## Legacy import API
 

@@ -41,6 +41,20 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   autoSave: true,
 };
 
+const SETTINGS_SECTIONS = [
+  "profile",
+  "preferences",
+  "appearance",
+  "data",
+  "migration",
+] as const;
+
+type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+function isSettingsSection(value: string | null): value is SettingsSection {
+  return SETTINGS_SECTIONS.some((section) => section === value);
+}
+
 function downloadBlob(fileName: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -61,7 +75,7 @@ function downloadJson(fileName: string, value: unknown) {
 
 export function SettingsPage() {
   const { user } = useUser();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { lists, loading: listsLoading } = useListExportData();
   const {
     loading: templatesLoading,
@@ -75,6 +89,10 @@ export function SettingsPage() {
     updatePreferences,
   } = usePreferences();
   const { setTheme, theme } = useTheme();
+  const requestedSection = searchParams.get("section");
+  const initialSection: SettingsSection = isSettingsSection(requestedSection)
+    ? requestedSection
+    : "profile";
   const [draftOverrides, setDraftOverrides] = useState<
     Partial<UserPreferences>
   >({});
@@ -91,12 +109,18 @@ export function SettingsPage() {
     if (!draft) return;
     setDraftOverrides((current) => updater({ ...draft, ...current }));
   };
-  const requestedSection = searchParams.get("section");
-  const initialSection = ["profile", "preferences", "appearance", "data", "migration"].includes(
-    requestedSection ?? "",
-  )
-    ? requestedSection!
-    : "profile";
+  const selectSection = (value: string) => {
+    if (!isSettingsSection(value)) return;
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === "profile") next.delete("section");
+        else next.set("section", value);
+        return next;
+      },
+      { replace: true },
+    );
+  };
   const accountDataLoading =
     loading ||
     draft === null ||
@@ -144,7 +168,11 @@ export function SettingsPage() {
         description="Manage your account, packing defaults, appearance, data, and legacy recovery in one place."
       />
 
-      <Tabs defaultValue={initialSection} className="space-y-6">
+      <Tabs
+        value={initialSection}
+        onValueChange={selectSection}
+        className="space-y-6"
+      >
 
         <TabsList className="flex h-auto max-w-full flex-wrap overflow-x-auto" aria-label="Settings sections">
           <TabsTrigger value="profile"><User className="mr-2 h-4 w-4" />Profile</TabsTrigger>

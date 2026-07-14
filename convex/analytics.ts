@@ -313,16 +313,19 @@ export const getDashboardMetrics = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const users = await ctx.db.query("users").collect();
-    const lists = await ctx.db.query("lists").collect();
+    const [users, regularLists] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db
+        .query("lists")
+        .withIndex("by_template", (q) => q.eq("isTemplate", false))
+        .collect(),
+    ]);
 
     const now = Date.now();
     const dayAgo = now - (24 * 60 * 60 * 1000);
     const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
     const twoWeeksAgo = now - (14 * 24 * 60 * 60 * 1000);
 
-    const regularLists = lists;
-    
     // Recent activity
     const recentUsers = users.filter(u => u.createdAt && u.createdAt >= dayAgo).length;
     const recentLists = regularLists.filter(l => l.createdAt && l.createdAt >= dayAgo).length;

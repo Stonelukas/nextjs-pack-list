@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hookState = vi.hoisted(() => ({
@@ -25,11 +26,6 @@ const hookState = vi.hoisted(() => ({
   setTheme: vi.fn(),
 }));
 const clerkState = vi.hoisted(() => ({ userProfile: vi.fn() }));
-
-vi.mock("react-router-dom", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("react-router-dom")>()),
-  useSearchParams: () => [new URLSearchParams(), vi.fn()],
-}));
 vi.mock("@clerk/clerk-react", () => ({
   UserProfile: (props: unknown) => {
     clerkState.userProfile(props);
@@ -86,6 +82,17 @@ function readBlob(blob: Blob) {
   });
 }
 
+function renderSettings(initialEntry = "/settings") {
+  const router = createMemoryRouter(
+    [{ path: "/settings", element: <SettingsPage /> }],
+    { initialEntries: [initialEntry] },
+  );
+  return {
+    router,
+    ...render(<RouterProvider router={router} />),
+  };
+}
+
 beforeEach(() => {
   Object.defineProperty(window, "localStorage", {
     configurable: true,
@@ -114,14 +121,18 @@ beforeEach(() => {
   hookState.setTheme.mockReset();
   clerkState.userProfile.mockReset();
   exportedBlob = undefined;
-  vi.stubGlobal("URL", {
-    ...URL,
-    createObjectURL: vi.fn((blob: Blob) => {
-      exportedBlob = blob;
-      return "blob:test";
-    }),
-    revokeObjectURL: vi.fn(),
-  });
+  const NativeURL = URL;
+  vi.stubGlobal(
+    "URL",
+    class TestURL extends NativeURL {
+      static createObjectURL(blob: Blob) {
+        exportedBlob = blob;
+        return "blob:test";
+      }
+
+      static revokeObjectURL() {}
+    },
+  );
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 });
 
@@ -133,14 +144,14 @@ afterEach(() => {
 
 describe("SettingsPage", () => {
   it("keeps the page title at h1 and active panel title at h2", () => {
-    render(<SettingsPage />);
+    renderSettings();
 
     expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Profile and security" })).toBeInTheDocument();
   });
 
   it("applies the shared Graphite Clerk theme to account management", () => {
-    render(<SettingsPage />);
+    renderSettings();
 
     expect(clerkState.userProfile).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -162,7 +173,7 @@ describe("SettingsPage", () => {
 
   it("applies an appearance draft immediately before it is saved", async () => {
     const user = userEvent.setup();
-    render(<SettingsPage />);
+    renderSettings();
 
     await user.click(screen.getByRole("tab", { name: /appearance/i }));
     await user.click(screen.getByLabelText("Theme"));
@@ -173,7 +184,7 @@ describe("SettingsPage", () => {
 
   it("does not offer an auto-save preference that has no distinct runtime behavior", async () => {
     const user = userEvent.setup();
-    render(<SettingsPage />);
+    renderSettings();
 
     await user.click(screen.getByRole("tab", { name: /preferences/i }));
 
@@ -188,7 +199,7 @@ describe("SettingsPage", () => {
       defaultPriority: "high",
       autoSave: false,
     };
-    render(<SettingsPage />);
+    renderSettings();
 
     await user.click(screen.getByRole("tab", { name: /preferences/i }));
     await user.click(screen.getByRole("button", { name: "Save preferences" }));
@@ -208,7 +219,7 @@ describe("SettingsPage", () => {
       title: "Could not save preferences",
       message: "Try again.",
     };
-    render(<SettingsPage />);
+    renderSettings();
 
     await user.click(screen.getByRole("tab", { name: /preferences/i }));
 
@@ -218,7 +229,7 @@ describe("SettingsPage", () => {
 
   it("disables account export until owner-scoped data resolves", async () => {
     const user = userEvent.setup();
-    render(<SettingsPage />);
+    renderSettings();
     await user.click(screen.getByRole("tab", { name: /data/i }));
 
     expect(screen.getByRole("button", { name: /export my data/i })).toBeDisabled();
@@ -233,7 +244,7 @@ describe("SettingsPage", () => {
     hookState.preferences = undefined;
     hookState.preferencesLoading = true;
 
-    render(<SettingsPage />);
+    renderSettings();
     await user.click(screen.getByRole("tab", { name: /preferences/i }));
 
     expect(screen.getByLabelText("Default item priority")).toBeDisabled();
@@ -269,7 +280,7 @@ describe("SettingsPage", () => {
     hookState.templates = [firstPageTemplate, laterPageTemplate];
     hookState.templatesLoading = false;
 
-    render(<SettingsPage />);
+    renderSettings();
     await user.click(screen.getByRole("tab", { name: /data/i }));
     await user.click(screen.getByRole("button", { name: /export my data/i }));
 
@@ -283,9 +294,26 @@ describe("SettingsPage", () => {
   it("mounts the validated one-time migration experience in settings", async () => {
     const user = userEvent.setup();
 
-    render(<SettingsPage />);
+    renderSettings();
     await user.click(screen.getByRole("tab", { name: /legacy migration/i }));
 
+    expect(screen.getByText("Validated legacy migration")).toBeInTheDocument();
+  });
+
+  it("follows section search-param changes while the page remains mounted", async () => {
+    const { router } = renderSettings();
+
+    expect(screen.getByRole("tab", { name: /profile/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await act(() => router.navigate("/settings?section=migration"));
+
+    expect(screen.getByRole("tab", { name: /legacy migration/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(screen.getByText("Validated legacy migration")).toBeInTheDocument();
   });
 });

@@ -373,6 +373,44 @@ describe("admin-only APIs", () => {
     });
   });
 
+  it("excludes legacy template rows from dashboard activity metrics", async () => {
+    const t = createTestBackend();
+    const { userId } = await seedAdminFixture(t);
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      const templateOwnerId = await ctx.db.insert("users", {
+        clerkId: "legacy-template-owner",
+        name: "Legacy Template Owner",
+      });
+      await ctx.db.insert("lists", {
+        userId,
+        name: "Recent packing list",
+        isTemplate: false,
+        createdAt: now - 60_000,
+        completedAt: now - 30_000,
+      });
+      await ctx.db.insert("lists", {
+        userId: templateOwnerId,
+        name: "Legacy template",
+        isTemplate: true,
+        createdAt: now - 60_000,
+        completedAt: now - 30_000,
+      });
+    });
+
+    const metrics = await t
+      .withIdentity({ subject: "admin-user" })
+      .query(api.analytics.getDashboardMetrics, {});
+
+    expect(metrics.realTime).toMatchObject({
+      activeUsers: 1,
+      listsToday: 1,
+      completionsToday: 1,
+    });
+    expect(metrics.trends.newListsToday).toBe(1);
+    expect(metrics.trends.newListsWeek).toBe(1);
+  });
+
   it("marks positive registration growth from a zero baseline as unavailable", async () => {
     const t = createTestBackend();
     await seedAdminFixture(t);
