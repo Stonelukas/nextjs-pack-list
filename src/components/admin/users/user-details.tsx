@@ -1,8 +1,8 @@
-"use client";
 
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,10 +23,12 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
+type UserDetailsResult = FunctionReturnType<typeof api.users.getUserDetails>;
+
 interface UserDetailsProps {
   userId: Id<"users">;
   onBack?: () => void;
-  onEdit?: () => void;
+  onEdit?: (user: UserDetailsResult["user"]) => void;
 }
 
 export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
@@ -37,7 +39,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Loading User Details...</CardTitle>
+          <CardTitle as="h2">Loading User Details...</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-32">
@@ -52,7 +54,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>User Not Found</CardTitle>
+          <CardTitle as="h2">User Not Found</CardTitle>
           <CardDescription>The requested user could not be found.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -76,12 +78,8 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
       .slice(0, 2);
   };
 
-  const getUserRole = (user: any) => {
-    if (user.email?.includes("admin") || user.email === "stonelukas@pm.me") {
-      return "admin";
-    }
-    return "user";
-  };
+  const getUserRole = (value: typeof user) =>
+    value.role === "admin" ? "admin" : "user";
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -94,7 +92,9 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
     }
   };
 
-  const getActivityDescription = (activity: any) => {
+  const getActivityDescription = (
+    activity: NonNullable<typeof userActivity>[number],
+  ) => {
     switch (activity.type) {
       case "list_created":
         return `Created list "${activity.data.listName}"`;
@@ -115,11 +115,11 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">User Details</h1>
+            <h2 className="text-2xl font-bold">User details</h2>
             <p className="text-muted-foreground">View and manage user information</p>
           </div>
         </div>
-        <Button onClick={onEdit}>
+        <Button onClick={() => onEdit?.(user)}>
           <Settings className="mr-2 h-4 w-4" />
           Edit User
         </Button>
@@ -129,7 +129,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
         {/* User Information */}
         <Card>
           <CardHeader>
-            <CardTitle>User Information</CardTitle>
+            <CardTitle as="h3">User Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center space-x-4">
@@ -138,7 +138,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
                 <AvatarFallback className="text-lg">{getInitials(user.name)}</AvatarFallback>
               </Avatar>
               <div className="space-y-1">
-                <h3 className="text-xl font-semibold">{user.name}</h3>
+                <h4 className="text-xl font-semibold">{user.name}</h4>
                 <div className="flex items-center space-x-2">
                   <Badge variant={getUserRole(user) === "admin" ? "default" : "secondary"}>
                     {getUserRole(user) === "admin" && <Shield className="h-3 w-3 mr-1" />}
@@ -197,27 +197,27 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
         {/* User Statistics */}
         <Card>
           <CardHeader>
-            <CardTitle>Activity Statistics</CardTitle>
+            <CardTitle as="h3">Activity Statistics</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 grid-cols-2">
               <div className="text-center p-4 border rounded-lg">
-                <Package className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+                <Package className="mx-auto mb-2 h-8 w-8 text-primary" />
                 <div className="text-2xl font-bold">{stats.totalLists}</div>
                 <div className="text-sm text-muted-foreground">Total Lists</div>
               </div>
               <div className="text-center p-4 border rounded-lg">
-                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-success" />
                 <div className="text-2xl font-bold">{stats.completedLists}</div>
                 <div className="text-sm text-muted-foreground">Completed</div>
               </div>
               <div className="text-center p-4 border rounded-lg">
-                <FileText className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-                <div className="text-2xl font-bold">{stats.templateLists}</div>
+                <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                <div className="text-2xl font-bold">{stats.templateCount}</div>
                 <div className="text-sm text-muted-foreground">Templates</div>
               </div>
               <div className="text-center p-4 border rounded-lg">
-                <Clock className="h-8 w-8 mx-auto mb-2 text-orange-500" />
+                <Clock className="h-8 w-8 mx-auto mb-2 text-warning" />
                 <div className="text-2xl font-bold">{stats.activeLists}</div>
                 <div className="text-sm text-muted-foreground">Active</div>
               </div>
@@ -228,7 +228,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
         {/* Recent Lists */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Lists</CardTitle>
+            <CardTitle as="h3">Recent Lists</CardTitle>
             <CardDescription>User's most recently updated lists</CardDescription>
           </CardHeader>
           <CardContent>
@@ -238,7 +238,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
               </p>
             ) : (
               <div className="space-y-3">
-                {recentLists.map((list: any) => (
+                {recentLists.map((list) => (
                   <div key={list._id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Package className="h-4 w-4 text-muted-foreground" />
@@ -252,9 +252,6 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {list.isTemplate && (
-                        <Badge variant="outline" className="text-xs">Template</Badge>
-                      )}
                       {list.completedAt && (
                         <Badge variant="secondary" className="text-xs">Completed</Badge>
                       )}
@@ -269,7 +266,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
         {/* Activity Timeline */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle as="h3">Recent Activity</CardTitle>
             <CardDescription>User's recent actions and events</CardDescription>
           </CardHeader>
           <CardContent>
@@ -304,7 +301,7 @@ export function UserDetails({ userId, onBack, onEdit }: UserDetailsProps) {
       {user.preferences && (
         <Card>
           <CardHeader>
-            <CardTitle>User Preferences</CardTitle>
+            <CardTitle as="h3">User Preferences</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">

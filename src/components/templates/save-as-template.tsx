@@ -1,8 +1,9 @@
-"use client"
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useRef, useState } from "react";
+import { Globe, Lock, Package, Save } from "lucide-react";
+import { toast } from "sonner";
 
-import { useState } from "react";
-import { List, TemplateCategory } from "@/types";
-import { useConvexStore } from "@/hooks/use-convex-store";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,272 +13,182 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Save, Package, Globe, Lock, Tag, Info } from "lucide-react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import type { ListDocument } from "@/features/lists/types";
+import { useTemplates } from "@/features/templates/hooks/use-templates";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 interface SaveAsTemplateProps {
-  list: List;
+  list: ListDocument;
   trigger?: React.ReactNode;
-  onSaved?: (templateId: string) => void;
+  onSaved?: (templateId: Id<"templates">) => void;
   className?: string;
 }
 
-export function SaveAsTemplate({ 
-  list, 
-  trigger, 
+export function SaveAsTemplate({
+  list,
+  trigger,
   onSaved,
-  className 
+  className,
 }: SaveAsTemplateProps) {
-  const { saveAsTemplate } = useConvexStore();
+  const { createTemplateFromList, error, pending } = useTemplates();
+  const { online } = useOnlineStatus();
   const [open, setOpen] = useState(false);
-  const [templateName, setTemplateName] = useState(list.name + " Template");
+  const [name, setName] = useState(`${list.name} Template`);
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("custom");
   const [isPublic, setIsPublic] = useState(false);
-  const [selectedTags, setSelectedTags] = useState<TemplateCategory[]>([]);
-  const [difficulty, setDifficulty] = useState<string>("intermediate");
-  const [duration, setDuration] = useState<string>("");
-  const [icon, setIcon] = useState<string>("📦");
+  const submissionGuard = useRef(false);
+  const totalItems = list.categories.reduce(
+    (total, value) => total + value.items.length,
+    0,
+  );
 
-  const availableIcons = [
-    "📦", "✈️", "🏖️", "⛺", "💼", "🎒", 
-    "🏔️", "🚗", "⛷️", "👶", "💒", "🎉",
-    "🏃", "🚴", "🏊", "🎾", "⚽", "🏈"
-  ];
-
-  const handleSave = () => {
-    if (!templateName.trim()) {
-      toast.error("Please enter a template name");
+  const save = async () => {
+    if (
+      !online ||
+      submissionGuard.current ||
+      !name.trim() ||
+      !description.trim()
+    ) {
       return;
     }
 
-    if (!description.trim()) {
-      toast.error("Please enter a description");
-      return;
-    }
-
-    // Create the template with additional metadata
-    const templateId = saveAsTemplate(
-      list.id,
-      templateName.trim(),
-      description.trim(),
-      isPublic
-    );
-
-    if (templateId) {
-      // Update the template with additional metadata
-      // Note: This would need to be enhanced in the store to support these fields
-      toast.success(`Template "${templateName}" saved successfully!`);
+    submissionGuard.current = true;
+    try {
+      const templateId = await createTemplateFromList(
+        {
+          listId: list._id,
+          name: name.trim(),
+          description: description.trim(),
+          category: category.trim() || undefined,
+          isPublic,
+        },
+        { rethrow: true },
+      );
+      if (!templateId) return;
+      toast.success(`Template “${name}” saved`);
       setOpen(false);
-      if (onSaved) {
-        onSaved(templateId);
-      }
-    } else {
-      toast.error("Failed to save template");
+      onSaved?.(templateId);
+    } catch {
+      // useTemplates exposes the mapped failure for the dialog to render.
+    } finally {
+      submissionGuard.current = false;
     }
   };
-
-  const toggleTag = (tag: TemplateCategory) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
-  };
-
-  // Calculate list statistics
-  const totalCategories = list.categories.length;
-  const totalItems = list.categories.reduce((sum, cat) => sum + cat.items.length, 0);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (submissionGuard.current && !nextOpen) return;
+        setOpen(nextOpen);
+      }}
+    >
       <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="outline" size="sm" className={cn("gap-2", className)}>
-            <Save className="h-4 w-4" />
-            Save as Template
+        {trigger ?? (
+          <Button variant="outline" size="sm" className={className}>
+            <Save className="mr-2 h-4 w-4" />
+            Save as template
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Save List as Template</DialogTitle>
+          <DialogTitle>Save list as template</DialogTitle>
           <DialogDescription>
-            Create a reusable template from your current packing list
+            Create a reusable template from this list.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-6 py-4">
-          {/* Template Name */}
+        <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="template-name">Template Name</Label>
+            <Label htmlFor="template-name">Name</Label>
             <Input
               id="template-name"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              placeholder="e.g., Weekend Beach Trip"
-              maxLength={50}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
             />
           </div>
-
-          {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="template-description">Description</Label>
             <Textarea
-              id="description"
+              id="template-description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what this template is for..."
-              rows={3}
-              maxLength={200}
+              onChange={(event) => setDescription(event.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              {description.length}/200 characters
-            </p>
           </div>
-
-          {/* Icon Selection */}
           <div className="space-y-2">
-            <Label>Icon</Label>
-            <div className="flex flex-wrap gap-2">
-              {availableIcons.map((emoji) => (
-                <Button
-                  key={emoji}
-                  variant={icon === emoji ? "default" : "outline"}
-                  size="sm"
-                  className="h-10 w-10 p-0 text-lg"
-                  onClick={() => setIcon(emoji)}
-                >
-                  {emoji}
-                </Button>
-              ))}
-            </div>
+            <Label htmlFor="template-category">Category</Label>
+            <Input
+              id="template-category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            />
           </div>
-
-          {/* Category Tags */}
-          <div className="space-y-2">
-            <Label>Categories</Label>
-            <div className="flex flex-wrap gap-2">
-              {Object.values(TemplateCategory).map((category) => (
-                <Badge
-                  key={category}
-                  variant={selectedTags.includes(category) ? "default" : "outline"}
-                  className="cursor-pointer"
-                  onClick={() => toggleTag(category)}
-                >
-                  <Tag className="h-3 w-3 mr-1" />
-                  {category.charAt(0).toUpperCase() + category.slice(1)}
-                </Badge>
-              ))}
-            </div>
-            {selectedTags.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Select at least one category to help others find your template
-              </p>
-            )}
-          </div>
-
-          {/* Additional Metadata */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="difficulty">Difficulty Level</Label>
-              <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger id="difficulty">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="beginner">Beginner</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="duration">Trip Duration</Label>
-              <Input
-                id="duration"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                placeholder="e.g., 3 days, 1 week"
-              />
-            </div>
-          </div>
-
-          {/* Visibility */}
           <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="public" className="flex items-center gap-2">
+            <div>
+              <Label
+                htmlFor="template-public"
+                className="flex items-center gap-2"
+              >
                 {isPublic ? (
-                  <>
-                    <Globe className="h-4 w-4" />
-                    Public Template
-                  </>
+                  <Globe className="h-4 w-4" />
                 ) : (
-                  <>
-                    <Lock className="h-4 w-4" />
-                    Private Template
-                  </>
+                  <Lock className="h-4 w-4" />
                 )}
+                {isPublic ? "Public template" : "Private template"}
               </Label>
               <p className="text-sm text-muted-foreground">
-                {isPublic 
-                  ? "Others can discover and use this template"
-                  : "Only you can see and use this template"}
+                {list.categories.length} categories and {totalItems} items
               </p>
             </div>
             <Switch
-              id="public"
+              id="template-public"
               checked={isPublic}
               onCheckedChange={setIsPublic}
             />
           </div>
-
-          {/* Template Info */}
-          <div className="rounded-lg bg-muted p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Info className="h-4 w-4" />
-              Template Contents
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                <span>{totalCategories} categories</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                <span>{totalItems} items</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              All categories and items from your current list will be included in the template
-            </p>
+          <div className="flex items-center gap-2 rounded-lg bg-muted p-3 text-sm">
+            <Package className="h-4 w-4" />
+            All current categories and items will be copied.
           </div>
+          {error ? (
+            <div role="alert" className="text-sm text-destructive">
+              <p className="font-semibold">{error.title}</p>
+              <p>{error.message}</p>
+            </div>
+          ) : null}
+          {!online ? (
+            <p
+              id="save-template-offline-reason"
+              role="status"
+              aria-live="polite"
+              className="text-sm text-warning"
+            >
+              Reconnect to save this template. Your draft remains editable while
+              offline.
+            </p>
+          ) : null}
         </div>
-
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() => setOpen(false)}
+          >
             Cancel
           </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={!templateName.trim() || !description.trim() || selectedTags.length === 0}
+          <Button
+            onClick={() => void save()}
+            disabled={pending || !online || !name.trim() || !description.trim()}
+            aria-describedby={
+              !online ? "save-template-offline-reason" : undefined
+            }
           >
-            <Save className="h-4 w-4 mr-2" />
-            Save Template
+            {pending ? "Saving…" : "Save template"}
           </Button>
         </DialogFooter>
       </DialogContent>

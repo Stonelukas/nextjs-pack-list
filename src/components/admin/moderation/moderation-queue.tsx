@@ -1,12 +1,10 @@
-"use client";
 
-import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useRef, useState } from "react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -39,25 +37,17 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-
-interface ModerationItem {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  content: any;
-  author: string;
-  authorId: string | null;
-  createdAt: number;
-  status: string;
-  flaggedReason: string;
-}
+import type { ModerationItem } from "./content-preview";
+import { ActionError } from "@/components/feedback/action-error";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { mapError, type UserFacingError } from "@/lib/errors";
 
 interface ModerationQueueProps {
   onPreviewItem?: (item: ModerationItem) => void;
 }
 
 export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
+  const { online } = useOnlineStatus();
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("pending");
   const [actionDialog, setActionDialog] = useState<{
@@ -73,12 +63,20 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
   const [rejectionReason, setRejectionReason] = useState("");
   const [flagReason, setFlagReason] = useState("");
   const [flagSeverity, setFlagSeverity] = useState("medium");
+  const [actionPending, setActionPending] = useState(false);
+  const [actionError, setActionError] = useState<UserFacingError | null>(null);
+  const actionGuard = useRef(false);
 
   // Fetch moderation data
-  const moderationQueue = useQuery(api.moderation.getModerationQueue, {
-    contentType: selectedType === "all" ? undefined : selectedType,
-    status: selectedStatus,
-  });
+  const moderationQuery = usePaginatedQuery(
+    api.moderation.getModerationQueue,
+    {
+      contentType: selectedType === "all" ? undefined : selectedType,
+      status: selectedStatus,
+    },
+    { initialNumItems: 50 },
+  );
+  const moderationQueue = moderationQuery.results;
   const moderationStats = useQuery(api.moderation.getModerationStats, {});
 
   // Mutations
@@ -95,11 +93,25 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
     setModeratorNotes("");
     setRejectionReason("");
     setFlagReason("");
+    setActionError(null);
   };
 
   const handleConfirmAction = async () => {
-    if (!actionDialog.action || !actionDialog.item) return;
+    if (
+      actionGuard.current ||
+      !actionDialog.action ||
+      !actionDialog.item
+    ) {
+      return;
+    }
+    if (!online) {
+      toast.error("Reconnect before saving changes.");
+      return;
+    }
 
+    actionGuard.current = true;
+    setActionPending(true);
+    setActionError(null);
     try {
       switch (actionDialog.action) {
         case "approve":
@@ -132,8 +144,10 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
       }
       setActionDialog({ open: false, action: null, item: null });
     } catch (error) {
-      toast.error("Failed to perform action");
-      console.error("Moderation action failed:", error);
+      setActionError(mapError(error));
+    } finally {
+      actionGuard.current = false;
+      setActionPending(false);
     }
   };
 
@@ -167,11 +181,14 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
     }
   };
 
-  if (!moderationQueue || !moderationStats) {
+  if (
+    moderationQuery.status === "LoadingFirstPage" ||
+    !moderationStats
+  ) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Content Moderation</CardTitle>
+          <CardTitle as="h2">Content Moderation</CardTitle>
           <CardDescription>Loading moderation queue...</CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,6 +209,11 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
           <p className="text-muted-foreground">
             Review and manage user-generated content
           </p>
+          {!online ? (
+            <p id="moderation-offline-reason" className="mt-1 text-sm text-warning">
+              Reconnect to approve, reject, or flag content.
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -199,7 +221,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pending</CardTitle>
+            <CardTitle as="h3" className="text-sm font-medium">Total Pending</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -211,7 +233,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lists & Templates</CardTitle>
+            <CardTitle as="h3" className="text-sm font-medium">Lists & Templates</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -223,7 +245,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">User Profiles</CardTitle>
+            <CardTitle as="h3" className="text-sm font-medium">User Profiles</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -233,7 +255,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+            <CardTitle as="h3" className="text-sm font-medium">Avg Response Time</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -244,11 +266,11 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
+      <div data-moderation-filters className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="grid gap-1.5 sm:min-w-48">
           <Label htmlFor="content-type">Content Type:</Label>
           <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger id="content-type" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -260,10 +282,10 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="grid gap-1.5 sm:min-w-40">
           <Label htmlFor="status">Status:</Label>
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger id="status" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -279,24 +301,24 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
       {/* Moderation Queue */}
       <Card>
         <CardHeader>
-          <CardTitle>Moderation Queue</CardTitle>
+          <CardTitle as="h3">Moderation Queue</CardTitle>
           <CardDescription>
-            {moderationQueue.length} items requiring review
+            {moderationQueue.length} loaded items requiring review
           </CardDescription>
         </CardHeader>
         <CardContent>
           {moderationQueue.length === 0 ? (
             <div className="text-center py-8">
-              <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
+              <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
               <h3 className="text-lg font-medium mb-2">All caught up!</h3>
               <p className="text-muted-foreground">No items pending moderation.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {moderationQueue.map((item) => (
-                <div key={item.id} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3">
+                <div key={item.moderationId} className="border rounded-lg p-4 space-y-3">
+                  <div data-moderation-item className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex min-w-0 items-start space-x-3">
                       <div className="flex-shrink-0">
                         {getContentTypeIcon(item.type)}
                       </div>
@@ -311,7 +333,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
                         <p className="text-sm text-muted-foreground mb-2">
                           {item.description}
                         </p>
-                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
                           <span className="flex items-center">
                             <User className="h-3 w-3 mr-1" />
                             {item.author}
@@ -327,10 +349,11 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div data-moderation-actions className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:justify-end">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full lg:w-auto"
                         onClick={() => onPreviewItem?.(item)}
                       >
                         <Eye className="h-4 w-4 mr-1" />
@@ -339,7 +362,10 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
                       <Button
                         variant="default"
                         size="sm"
+                        className="w-full lg:w-auto"
                         onClick={() => handleAction("approve", item)}
+                        disabled={!online}
+                        aria-describedby={!online ? "moderation-offline-reason" : undefined}
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Approve
@@ -347,7 +373,10 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
                       <Button
                         variant="destructive"
                         size="sm"
+                        className="w-full lg:w-auto"
                         onClick={() => handleAction("reject", item)}
+                        disabled={!online}
+                        aria-describedby={!online ? "moderation-offline-reason" : undefined}
                       >
                         <XCircle className="h-4 w-4 mr-1" />
                         Reject
@@ -355,7 +384,10 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full lg:w-auto"
                         onClick={() => handleAction("flag", item)}
+                        disabled={!online}
+                        aria-describedby={!online ? "moderation-offline-reason" : undefined}
                       >
                         <Flag className="h-4 w-4 mr-1" />
                         Flag
@@ -366,13 +398,33 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
               ))}
             </div>
           )}
+          {moderationQuery.status === "CanLoadMore" ||
+          moderationQuery.status === "LoadingMore" ? (
+            <div className="mt-6 flex justify-center">
+              <Button
+                variant="outline"
+                disabled={moderationQuery.status === "LoadingMore"}
+                aria-busy={moderationQuery.status === "LoadingMore"}
+                onClick={() => moderationQuery.loadMore(50)}
+              >
+                {moderationQuery.status === "LoadingMore"
+                  ? "Loading moderation items…"
+                  : "Load more moderation items"}
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
       {/* Action Dialog */}
-      <Dialog open={actionDialog.open} onOpenChange={(open) => 
-        setActionDialog({ ...actionDialog, open })
-      }>
+      <Dialog
+        open={actionDialog.open}
+        onOpenChange={(open) => {
+          if (actionPending) return;
+          setActionDialog({ ...actionDialog, open });
+          if (!open) setActionError(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
@@ -389,7 +441,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
               <div>
                 <Label htmlFor="rejection-reason">Rejection Reason *</Label>
                 <Select value={rejectionReason} onValueChange={setRejectionReason}>
-                  <SelectTrigger>
+                  <SelectTrigger id="rejection-reason">
                     <SelectValue placeholder="Select a reason" />
                   </SelectTrigger>
                   <SelectContent>
@@ -408,7 +460,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
                 <div>
                   <Label htmlFor="flag-reason">Flag Reason *</Label>
                   <Select value={flagReason} onValueChange={setFlagReason}>
-                    <SelectTrigger>
+                    <SelectTrigger id="flag-reason">
                       <SelectValue placeholder="Select a reason" />
                     </SelectTrigger>
                     <SelectContent>
@@ -423,7 +475,7 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
                 <div>
                   <Label htmlFor="flag-severity">Severity</Label>
                   <Select value={flagSeverity} onValueChange={setFlagSeverity}>
-                    <SelectTrigger>
+                    <SelectTrigger id="flag-severity">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -445,9 +497,11 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
               />
             </div>
           </div>
+          {actionError ? <ActionError error={actionError} id="moderation-action-error" /> : null}
           <DialogFooter>
             <Button
               variant="outline"
+              disabled={actionPending}
               onClick={() => setActionDialog({ open: false, action: null, item: null })}
             >
               Cancel
@@ -455,9 +509,19 @@ export function ModerationQueue({ onPreviewItem }: ModerationQueueProps) {
             <Button
               onClick={handleConfirmAction}
               disabled={
+                !online ||
+                actionPending ||
                 (actionDialog.action === "reject" && !rejectionReason) ||
                 (actionDialog.action === "flag" && !flagReason)
               }
+              aria-describedby={
+                actionError
+                  ? "moderation-action-error"
+                  : !online
+                    ? "moderation-offline-reason"
+                    : undefined
+              }
+              aria-busy={actionPending}
             >
               Confirm {actionDialog.action}
             </Button>

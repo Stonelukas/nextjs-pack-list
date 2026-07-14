@@ -1,4 +1,3 @@
-'use client'
 
 import { track } from '@vercel/analytics'
 import { useCallback } from 'react'

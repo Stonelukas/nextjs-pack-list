@@ -1,6 +1,19 @@
-"use client"
-
 import { useState } from "react";
+import {
+  CheckCircle,
+  Copy,
+  Download,
+  FileImage,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  Printer,
+  QrCode,
+  Share2,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,36 +22,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
+import type {
+  CategoryDocument,
+  ItemDocument,
+  ListDocument,
+} from "@/features/lists/types";
 import {
-  Download,
-  FileText,
-  FileJson,
-  FileSpreadsheet,
-  Share2,
-  QrCode,
-  Copy,
-  Printer,
-  CheckCircle,
-} from "lucide-react";
-import {
+  copyToClipboard,
+  exportAsCSV,
+  exportAsImage,
+  exportAsJSON,
   exportAsPDF,
   exportAsText,
-  exportAsCSV,
-  exportAsJSON,
-  generateShareableLink,
+  generateOwnerListLink,
   generateQRCode,
-  copyToClipboard,
 } from "@/lib/export-utils";
-import { List, Category, Item } from "@/types";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface ExportDialogProps {
-  list: List;
-  categories: Category[];
-  items: Item[];
+  list: ListDocument;
+  categories: CategoryDocument[];
+  items: ItemDocument[];
   trigger?: React.ReactNode;
 }
 
@@ -48,107 +52,75 @@ export function ExportDialog({
   items,
   trigger,
 }: ExportDialogProps) {
-  const [isExporting, setIsExporting] = useState(false);
-  const [shareLink, setShareLink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [ownerLink, setOwnerLink] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
-  const [isCopied, setIsCopied] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleExportPDF = async () => {
-    setIsExporting(true);
+  const runExport = async (label: string, action: () => Promise<void>) => {
+    setBusy(true);
     try {
-      await exportAsPDF(list, categories, items);
-      toast.success("PDF exported successfully", {
-        description: "Your packing list has been downloaded as a PDF.",
-      });
-    } catch (error) {
-      toast.error("Export failed", {
-        description: "Failed to export PDF. Please try again.",
-      });
+      await action();
+      toast.success(`${label} exported successfully`);
+    } catch {
+      toast.error(`Failed to export ${label}`);
     } finally {
-      setIsExporting(false);
+      setBusy(false);
     }
   };
 
-  const handleExportText = () => {
-    try {
-      exportAsText(list, categories, items);
-      toast.success("Text file exported successfully", {
-        description: "Your packing list has been downloaded as a text file.",
-      });
-    } catch (error) {
-      toast.error("Export failed", {
-        description: "Failed to export text file. Please try again.",
-      });
+  const generateLink = async () => {
+    const link = generateOwnerListLink(list._id);
+    setOwnerLink(link);
+    setQrCodeUrl(await generateQRCode(link));
+  };
+
+  const copyLink = async () => {
+    const link = ownerLink || generateOwnerListLink(list._id);
+    if (!ownerLink) setOwnerLink(link);
+    if (await copyToClipboard(link)) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  const handleExportCSV = () => {
-    try {
-      exportAsCSV(list, categories, items);
-      toast.success("CSV exported successfully", {
-        description: "Your packing list has been downloaded as a CSV file.",
-      });
-    } catch (error) {
-      toast.error("Export failed", {
-        description: "Failed to export CSV. Please try again.",
-      });
-    }
-  };
-
-  const handleExportJSON = () => {
-    try {
-      exportAsJSON(list, categories, items);
-      toast.success("JSON exported successfully", {
-        description: "Your packing list has been downloaded as a JSON file.",
-      });
-    } catch (error) {
-      toast.error("Export failed", {
-        description: "Failed to export JSON. Please try again.",
-      });
-    }
-  };
-
-  const handleGenerateShareLink = async () => {
-    try {
-      const link = await generateShareableLink(list.id);
-      setShareLink(link);
-      const qrCode = await generateQRCode(link);
-      setQrCodeUrl(qrCode);
-    } catch (error) {
-      toast.error("Failed to generate share link", {
-        description: "Please try again later.",
-      });
-    }
-  };
-
-  const handleCopyLink = async () => {
-    if (!shareLink) {
-      await handleGenerateShareLink();
-    }
-    
-    const success = await copyToClipboard(shareLink);
-    if (success) {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-      toast.success("Link copied!", {
-        description: "Share link has been copied to clipboard.",
-      });
-    } else {
-      toast.error("Copy failed", {
-        description: "Failed to copy link. Please copy manually.",
-      });
-    }
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
+  const exportButtons = [
+    {
+      label: "PDF",
+      icon: FileText,
+      action: () => exportAsPDF(list, categories, items),
+    },
+    {
+      label: "Text",
+      icon: FileText,
+      action: () => exportAsText(list, categories, items),
+    },
+    {
+      label: "CSV",
+      icon: FileSpreadsheet,
+      action: () => exportAsCSV(list, categories, items),
+    },
+    {
+      label: "JSON",
+      icon: FileJson,
+      action: () => exportAsJSON(list, categories, items),
+    },
+    {
+      label: "Image",
+      icon: FileImage,
+      action: async () => {
+        const element = document.querySelector<HTMLElement>("[data-list-detail]");
+        if (!element) throw new Error("List view unavailable");
+        await exportAsImage(list, element);
+      },
+    },
+  ];
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="outline" size="sm">
+        {trigger ?? (
+          <Button variant="outline" size="sm" data-export-trigger>
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -156,169 +128,80 @@ export function ExportDialog({
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Export & Share</DialogTitle>
+          <DialogTitle>Export and open elsewhere</DialogTitle>
           <DialogDescription>
-            Export your packing list in various formats or share it with others.
+            Download or print the list, or create an owner-only device link.
           </DialogDescription>
         </DialogHeader>
-
-        <Tabs defaultValue="export" className="w-full">
+        <Tabs defaultValue="export">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="export">Export</TabsTrigger>
-            <TabsTrigger value="share">Share</TabsTrigger>
+            <TabsTrigger value="device">Open on another device</TabsTrigger>
           </TabsList>
-
           <TabsContent value="export" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {exportButtons.map(({ action, icon: Icon, label }) => (
                 <Button
-                  onClick={handleExportPDF}
-                  disabled={isExporting}
-                  className="w-full h-24 flex-col gap-2"
+                  key={label}
                   variant="outline"
+                  className="h-24 flex-col"
+                  disabled={busy}
+                  onClick={() => void runExport(label, action)}
                 >
-                  <FileText className="h-8 w-8" />
-                  <div>
-                    <div className="font-medium">PDF</div>
-                    <div className="text-xs text-muted-foreground">
-                      Printable format
-                    </div>
-                  </div>
+                  <Icon className="mb-2 h-7 w-7" />
+                  {label}
                 </Button>
-              </motion.div>
-
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button
-                  onClick={handleExportText}
-                  className="w-full h-24 flex-col gap-2"
-                  variant="outline"
-                >
-                  <FileText className="h-8 w-8" />
-                  <div>
-                    <div className="font-medium">Text</div>
-                    <div className="text-xs text-muted-foreground">
-                      Simple text format
-                    </div>
-                  </div>
-                </Button>
-              </motion.div>
-
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button
-                  onClick={handleExportCSV}
-                  className="w-full h-24 flex-col gap-2"
-                  variant="outline"
-                >
-                  <FileSpreadsheet className="h-8 w-8" />
-                  <div>
-                    <div className="font-medium">CSV</div>
-                    <div className="text-xs text-muted-foreground">
-                      Spreadsheet format
-                    </div>
-                  </div>
-                </Button>
-              </motion.div>
-
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button
-                  onClick={handleExportJSON}
-                  className="w-full h-24 flex-col gap-2"
-                  variant="outline"
-                >
-                  <FileJson className="h-8 w-8" />
-                  <div>
-                    <div className="font-medium">JSON</div>
-                    <div className="text-xs text-muted-foreground">
-                      Data format
-                    </div>
-                  </div>
-                </Button>
-              </motion.div>
+              ))}
             </div>
-
-            <div className="pt-4 border-t">
-              <Button onClick={handlePrint} className="w-full" variant="secondary">
-                <Printer className="mr-2 h-4 w-4" />
-                Print Preview
-              </Button>
-            </div>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={() => window.print()}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print
+            </Button>
           </TabsContent>
-
-          <TabsContent value="share" className="space-y-4">
-            <div className="space-y-4">
-              <div className="flex flex-col gap-4">
-                <Button
-                  onClick={handleGenerateShareLink}
-                  disabled={!!shareLink}
-                  className="w-full"
-                >
-                  <Share2 className="mr-2 h-4 w-4" />
-                  {shareLink ? "Link Generated" : "Generate Share Link"}
-                </Button>
-
-                <AnimatePresence>
-                  {shareLink && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4"
-                    >
-                      <div className="p-4 bg-muted rounded-lg space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">Share Link</div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCopyLink}
-                          >
-                            {isCopied ? (
-                              <>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Copied!
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Copy
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                        <div className="p-2 bg-background rounded border text-xs font-mono break-all">
-                          {shareLink}
-                        </div>
-                      </div>
-
-                      {qrCodeUrl && (
-                        <div className="flex flex-col items-center gap-2 p-4 bg-muted rounded-lg">
-                          <QrCode className="h-6 w-6 text-muted-foreground" />
-                          <img
-                            src={qrCodeUrl}
-                            alt="QR Code"
-                            className="w-48 h-48 bg-white p-2 rounded"
-                          />
-                          <div className="text-xs text-muted-foreground text-center">
-                            Scan this QR code to access the shared list
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  <p className="mb-2">Share options:</p>
-                  <ul className="space-y-1 ml-4">
-                    <li>• View-only access for anyone with the link</li>
-                    <li>• No login required</li>
-                    <li>• Link expires in 30 days</li>
-                  </ul>
+          <TabsContent value="device" className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This URL only works for someone signed in to the same account that owns
+              the list. It does not grant access to another user.
+            </p>
+            <Button
+              className="w-full"
+              onClick={() => void generateLink()}
+              disabled={Boolean(ownerLink)}
+            >
+              <Share2 className="mr-2 h-4 w-4" />
+              {ownerLink ? "Device link generated" : "Generate device link and QR code"}
+            </Button>
+            {ownerLink ? (
+              <div className="space-y-4 rounded-lg bg-muted p-4">
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 break-all text-xs">
+                    {ownerLink}
+                  </code>
+                  <Button size="sm" variant="outline" onClick={() => void copyLink()}>
+                    {copied ? (
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Copy className="mr-2 h-4 w-4" />
+                    )}
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
                 </div>
+                {qrCodeUrl ? (
+                  <div className="flex flex-col items-center">
+                    <QrCode className="mb-2 h-5 w-5" />
+                    <img
+                      src={qrCodeUrl}
+                      alt="QR code for the owner-only list URL"
+                      className="h-48 w-48 rounded bg-white p-2"
+                    />
+                  </div>
+                ) : null}
               </div>
-            </div>
+            ) : null}
           </TabsContent>
         </Tabs>
       </DialogContent>

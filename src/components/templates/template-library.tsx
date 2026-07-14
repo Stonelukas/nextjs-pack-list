@@ -1,347 +1,148 @@
-"use client"
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useUser } from "@clerk/clerk-react";
+import { useMemo, useRef, useState } from "react";
+import { Grid3x3, List, Package, Search, X } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
-import { useState, useMemo, useEffect } from "react";
-import { Template, TemplateCategory } from "@/types";
-import { useConvexStore } from "@/hooks/use-convex-store";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { PageHeader } from "@/components/layout/page-header";
+import { Section } from "@/components/layout/section";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  useTemplateDetail,
+  useTemplates,
+  type TemplateSummary,
+} from "@/features/templates/hooks/use-templates";
+import { filterTemplates } from "@/features/templates/template-model";
+import { cn } from "@/lib/utils";
 import { TemplateCard } from "./template-card";
 import { TemplatePreviewer } from "./template-previewer";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Search,
-  Filter,
-  Grid3x3,
-  List,
-  Sparkles,
-  Plus,
-  Package,
-  X
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
-import { searchTemplates, getTemplatesByCategory, getTemplatesBySeason, getTemplatesByDifficulty } from "@/data/default-templates";
 
 interface TemplateLibraryProps {
-  onTemplateCreated?: (listId: string) => void;
+  onTemplateCreated?: (listId: Id<"lists">) => void;
   className?: string;
 }
 
 export function TemplateLibrary({ onTemplateCreated, className }: TemplateLibraryProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { templates, applyTemplate } = useConvexStore();
-  
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
-  const [selectedSeason, setSelectedSeason] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
-  const [showOnlyUserTemplates, setShowOnlyUserTemplates] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isSignedIn } = useUser();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    applyTemplate,
+    canLoadMore,
+    loadMore,
+    loading,
+    loadingMore,
+    templates,
+  } = useTemplates();
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [difficulty, setDifficulty] = useState("all");
+  const [season, setSeason] = useState("all");
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [preview, setPreview] = useState<TemplateSummary | null>(null);
+  const { template: previewDetail, loading: previewLoading } = useTemplateDetail(
+    preview?._id,
+  );
+  const previewTrigger = useRef<HTMLElement | null>(null);
+  const filter = searchParams.get("filter") === "mine" || searchParams.get("filter") === "recent" ? searchParams.get("filter") as "mine" | "recent" : "all";
+  const filtered = useMemo(
+    () => filterTemplates(templates ?? [], { filter, search, category })
+      .filter((template) => (difficulty === "all" || template.difficulty === difficulty) && (season === "all" || template.season === season || template.season === "all")),
+    [category, difficulty, filter, search, season, templates],
+  );
 
-  // Handle query parameter filters
-  useEffect(() => {
-    const filter = searchParams.get("filter");
-    if (filter) {
-      switch (filter) {
-        case "mine":
-          setShowOnlyUserTemplates(true);
-          break;
-        case "recent":
-          // Sort by recent is handled in the filtered templates
-          break;
-      }
-    }
-  }, [searchParams]);
-
-  const allTemplates = useMemo(() => templates || [], [templates]);
-
-  // Filter templates based on search and filters
-  const filteredTemplates = useMemo(() => {
-    let templates = allTemplates;
-
-    // Filter by user templates if needed
-    if (showOnlyUserTemplates) {
-      templates = templates.filter(t => t.createdBy !== 'system');
-    }
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      templates = templates.filter(t => 
-        t.name.toLowerCase().includes(query) ||
-        t.description.toLowerCase().includes(query) ||
-        t.tags.some(tag => tag.toLowerCase().includes(query))
-      );
-    }
-
-    // Category filter
-    if (selectedCategory !== "all") {
-      templates = templates.filter(t => 
-        t.tags.includes(selectedCategory as TemplateCategory)
-      );
-    }
-
-    // Difficulty filter
-    if (selectedDifficulty !== "all") {
-      templates = templates.filter(t => 
-        t.difficulty === selectedDifficulty
-      );
-    }
-
-    // Season filter
-    if (selectedSeason !== "all") {
-      templates = templates.filter(t => 
-        t.season === selectedSeason || t.season === 'all'
-      );
-    }
-
-    return templates;
-  }, [allTemplates, searchQuery, selectedCategory, selectedDifficulty, selectedSeason, showOnlyUserTemplates]);
-
-  // Group templates by category for display
-  const groupedTemplates = useMemo(() => {
-    const groups: Record<string, Template[]> = {
-      "Your Templates": [],
-      "Featured": [],
-      "Travel": [],
-      "Outdoor": [],
-      "Events": [],
-      "Business": [],
-      "Sports": [],
-      "Seasonal": [],
-      "Emergency": []
-    };
-
-    filteredTemplates.forEach(template => {
-      // User templates
-      if (template.createdBy !== 'system') {
-        groups["Your Templates"].push(template);
-      }
-      
-      // Featured templates
-      if (template.isPublic && template.createdBy === 'system') {
-        groups["Featured"].push(template);
-      }
-
-      // Category-based grouping
-      template.tags.forEach(tag => {
-        const categoryName = tag.charAt(0).toUpperCase() + tag.slice(1);
-        if (groups[categoryName]) {
-          groups[categoryName].push(template);
-        }
-      });
-    });
-
-    // Remove empty groups
-    Object.keys(groups).forEach(key => {
-      if (groups[key].length === 0) {
-        delete groups[key];
-      }
-    });
-
-    return groups;
-  }, [filteredTemplates]);
-
-  const handleUseTemplate = async (template: Template, listName: string) => {
-    const listId = await applyTemplate(template.id, listName);
-    if (listId) {
-      toast.success(`Created "${listName}" from template`);
-      if (onTemplateCreated) {
-        onTemplateCreated(listId);
-      } else {
-        router.push(`/lists/${listId}`);
-      }
-    } else {
-      toast.error("Failed to create list from template");
-    }
+  const openPreview = (template: TemplateSummary) => {
+    previewTrigger.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPreview(template);
   };
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setSelectedCategory("all");
-    setSelectedDifficulty("all");
-    setSelectedSeason("all");
-    setShowOnlyUserTemplates(false);
+  const closePreview = () => {
+    setPreview(null);
+    window.requestAnimationFrame(() => previewTrigger.current?.focus());
   };
+  const useTemplate = async (template: TemplateSummary, listName: string) => {
+    if (!isSignedIn) {
+      const returnUrl = `${location.pathname}${location.search}${location.hash}`;
+      navigate(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+    const listId = await applyTemplate({ templateId: template._id, listName }, { rethrow: true });
+    if (!listId) return;
+    toast.success(`Created “${listName}” from template`);
+    if (onTemplateCreated) onTemplateCreated(listId);
+    else navigate(`/lists/${listId}`);
+  };
+  const clear = () => {
+    setSearch("");
+    setCategory("all");
+    setDifficulty("all");
+    setSeason("all");
+    setSearchParams({});
+  };
+  const active = Boolean(search || category !== "all" || difficulty !== "all" || season !== "all" || filter !== "all");
 
-  const hasActiveFilters = searchQuery || selectedCategory !== "all" || 
-    selectedDifficulty !== "all" || selectedSeason !== "all" || showOnlyUserTemplates;
+  if (loading) return <p className="py-20 text-center text-muted-foreground">Loading route templates…</p>;
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* Header and Search */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Template Library</h2>
-            <p className="text-muted-foreground">
-              Start with a pre-built template or create your own
-            </p>
+    <div className={cn(className)}>
+      <PageHeader
+        eyebrow={`Template registry / ${String(templates?.length ?? 0).padStart(2, "0")} plans`}
+        title="Template library"
+        description="Start with a public route plan or one of your private reusable manifests."
+        actions={
+          <div className="flex rounded-md border bg-card p-0.5" role="group" aria-label="Template layout">
+            <Button variant={view === "grid" ? "secondary" : "ghost"} size="icon" onClick={() => setView("grid")} aria-label="Grid view" aria-pressed={view === "grid"}><Grid3x3 /></Button>
+            <Button variant={view === "list" ? "secondary" : "ghost"} size="icon" onClick={() => setView("list")} aria-label="List view" aria-pressed={view === "list"}><List /></Button>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === "grid" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
+        }
+      />
+      <Section title="Available route plans" description={`${filtered.length} ${filtered.length === 1 ? "template" : "templates"} match the current manifest filters.`}>
+        <div className="mb-6 rounded-lg border border-border bg-card p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input className="pl-9" aria-label="Search templates" placeholder="Search route templates…" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Select value={category} onValueChange={setCategory}><SelectTrigger className="w-40" aria-label="Template category"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{["travel", "outdoor", "events", "business", "sports", "seasonal", "emergency", "custom"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select>
+            <Select value={difficulty} onValueChange={setDifficulty}><SelectTrigger className="w-40" aria-label="Template difficulty"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All levels</SelectItem><SelectItem value="beginner">Beginner</SelectItem><SelectItem value="intermediate">Intermediate</SelectItem><SelectItem value="advanced">Advanced</SelectItem></SelectContent></Select>
+            <Select value={season} onValueChange={setSeason}><SelectTrigger className="w-40" aria-label="Template season"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All seasons</SelectItem><SelectItem value="spring">Spring</SelectItem><SelectItem value="summer">Summer</SelectItem><SelectItem value="fall">Fall</SelectItem><SelectItem value="winter">Winter</SelectItem></SelectContent></Select>
+            <Button variant={filter === "mine" ? "default" : "outline"} size="sm" onClick={() => setSearchParams(filter === "mine" ? {} : { filter: "mine" })}>My templates</Button>
+            <Button variant={filter === "recent" ? "default" : "outline"} size="sm" onClick={() => setSearchParams(filter === "recent" ? {} : { filter: "recent" })}>Recent</Button>
+            {active ? <Button variant="ghost" size="sm" onClick={clear}><X aria-hidden="true" />Clear filters</Button> : null}
           </div>
         </div>
-
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search templates..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2">
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value={TemplateCategory.TRAVEL}>Travel</SelectItem>
-              <SelectItem value={TemplateCategory.OUTDOOR}>Outdoor</SelectItem>
-              <SelectItem value={TemplateCategory.EVENTS}>Events</SelectItem>
-              <SelectItem value={TemplateCategory.BUSINESS}>Business</SelectItem>
-              <SelectItem value={TemplateCategory.SPORTS}>Sports</SelectItem>
-              <SelectItem value={TemplateCategory.SEASONAL}>Seasonal</SelectItem>
-              <SelectItem value={TemplateCategory.EMERGENCY}>Emergency</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Difficulty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Levels</SelectItem>
-              <SelectItem value="beginner">Beginner</SelectItem>
-              <SelectItem value="intermediate">Intermediate</SelectItem>
-              <SelectItem value="advanced">Advanced</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedSeason} onValueChange={setSelectedSeason}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Season" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Seasons</SelectItem>
-              <SelectItem value="spring">Spring</SelectItem>
-              <SelectItem value="summer">Summer</SelectItem>
-              <SelectItem value="fall">Fall</SelectItem>
-              <SelectItem value="winter">Winter</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant={showOnlyUserTemplates ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowOnlyUserTemplates(!showOnlyUserTemplates)}
-          >
-            My Templates
-          </Button>
-
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear Filters
-            </Button>
-          )}
-        </div>
-
-        {/* Results Count */}
-        {hasActiveFilters && (
-          <p className="text-sm text-muted-foreground">
-            Found {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''}
-          </p>
+        {filtered.length === 0 ? (
+          <EmptyState icon={Package} title="No templates found" description="Adjust the filters or clear them to return to the full template registry." secondaryAction={active ? <Button variant="outline" onClick={clear}>Clear filters</Button> : undefined} />
+        ) : (
+          <div className={view === "grid" ? "grid gap-4 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+            {filtered.map((template) => <TemplateCard key={template._id} template={template} onPreview={openPreview} onUse={openPreview} />)}
+          </div>
         )}
-      </div>
-
-      {/* Templates Display */}
-      {filteredTemplates.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Package className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No templates found</h3>
-          <p className="text-muted-foreground mb-4">
-            {hasActiveFilters 
-              ? "Try adjusting your filters or search query"
-              : "No templates available yet"}
-          </p>
-          {hasActiveFilters && (
-            <Button variant="outline" onClick={clearFilters}>
-              Clear Filters
+        {canLoadMore ? (
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="outline"
+              disabled={loadingMore}
+              aria-busy={loadingMore}
+              onClick={loadMore}
+            >
+              {loadingMore ? "Loading templates…" : "Load more templates"}
             </Button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {Object.entries(groupedTemplates).map(([groupName, templates]) => (
-            <div key={groupName} className="space-y-4">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold">{groupName}</h3>
-                <Badge variant="secondary">{templates.length}</Badge>
-                {groupName === "Featured" && (
-                  <Sparkles className="h-4 w-4 text-yellow-500" />
-                )}
-              </div>
-              
-              <div className={cn(
-                viewMode === "grid" 
-                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                  : "space-y-2"
-              )}>
-                {templates.slice(0, 6).map((template) => (
-                  <TemplateCard
-                    key={template.id}
-                    template={template}
-                    onPreview={setPreviewTemplate}
-                    onUse={(t) => setPreviewTemplate(t)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Template Preview Dialog */}
+          </div>
+        ) : null}
+      </Section>
       <TemplatePreviewer
-        template={previewTemplate}
-        isOpen={!!previewTemplate}
-        onClose={() => setPreviewTemplate(null)}
-        onUse={handleUseTemplate}
+        template={previewDetail ?? null}
+        summary={preview}
+        loading={previewLoading}
+        isOpen={Boolean(preview)}
+        onClose={closePreview}
+        onUse={useTemplate}
       />
     </div>
   );

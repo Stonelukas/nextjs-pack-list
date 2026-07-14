@@ -1,6 +1,5 @@
-"use client"
 
-import { Category, Item } from "@/types";
+import { Category } from "@/types";
 import { ProgressBar } from "./progress-bar";
 import { getItemsStats, areEssentialsPacked } from "@/lib/progress-utils";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +47,7 @@ export function CategoryProgress({
           </Badge>
           
           {stats.progress === 100 && (
-            <Badge variant="default" className="gap-1 bg-green-600">
+            <Badge variant="outline" className="gap-1 border-success/40 text-success">
               <CheckCircle2 className="h-3 w-3" />
               Complete
             </Badge>
@@ -62,7 +61,7 @@ export function CategoryProgress({
           )}
           
           {essentialsPacked && stats.byPriority.essential > 0 && stats.progress < 100 && (
-            <Badge variant="outline" className="gap-1 border-green-600 text-green-600">
+            <Badge variant="outline" className="gap-1 border-success/40 text-success">
               <CheckCircle2 className="h-3 w-3" />
               Essentials packed
             </Badge>

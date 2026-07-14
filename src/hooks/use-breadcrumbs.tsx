@@ -1,7 +1,6 @@
-"use client";
 
 import { useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { useLocation } from "react-router-dom";
 
 export interface Breadcrumb {
   label: string;
@@ -27,7 +26,7 @@ const defaultRouteMapping: RouteMapping = {
  * Hook to generate breadcrumbs from the current pathname
  */
 export function useBreadcrumbs(customMapping?: RouteMapping): Breadcrumb[] {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   return useMemo(() => {
     const mapping = { ...defaultRouteMapping, ...customMapping };
@@ -49,10 +48,11 @@ export function useBreadcrumbs(customMapping?: RouteMapping): Breadcrumb[] {
 
       // Get label from mapping or capitalize segment
       let label = segment;
-      if (mapping[segment]) {
-        label = typeof mapping[segment] === "function"
-          ? (mapping[segment] as Function)(segment)
-          : mapping[segment] as string;
+      const mappedLabel = mapping[segment];
+      if (mappedLabel) {
+        label = typeof mappedLabel === "function"
+          ? mappedLabel(segment)
+          : mappedLabel;
       } else {
         // Check if it's an ID (common patterns)
         if (segment.match(/^[a-f\d]{24}$/i) || segment.match(/^\d+$/)) {

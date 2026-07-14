@@ -1,451 +1,465 @@
-"use client"
-
-// React imports
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-
-// Third-party imports
-import { format } from "date-fns";
-import { toast } from "sonner";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
+  closestCenter,
+  type DragEndEvent,
   useSensor,
   useSensors,
-  DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
+  arrayMove,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { format } from "date-fns";
+import { Check, Edit2, Package, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+
+import { SortableCategory } from "@/components/dnd/sortable-category";
+import { PrintView } from "@/components/export/print-view";
+import { QuickAddItemDialog } from "@/components/items/quick-add-item-dialog";
+import { LazyExportDialog } from "@/components/lazy/lazy-export-dialog";
+import { LazyImportDialog } from "@/components/lazy/lazy-import-dialog";
+import { PageHeader } from "@/components/layout/page-header";
 import {
-  Plus,
-  Edit2,
-  Package,
-  CheckCircle2,
-  AlertCircle,
-  Star,
-  Calendar,
-  Check
-} from "lucide-react";
-
-// Local imports - Types
-import { List, Category, Priority } from "@/types";
-
-// Local imports - Store
-import { useConvexStore } from "@/hooks/use-convex-store";
-
-// Local imports - Utils
-import { debounce, measurePerformance } from "@/lib/performance";
-
-// Local imports - UI Components
+  FloatingActionButton,
+  SpeedDialAction,
+} from "@/components/mobile/floating-action-button";
+import { ListProgress } from "@/components/progress/list-progress";
+import { SaveAsTemplate } from "@/components/templates/save-as-template";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-
-// Local imports - Feature Components
-import { SortableCategory } from "../dnd/sortable-category";
-import { ListProgress } from "../progress/list-progress";
-import { SaveAsTemplate } from "../templates/save-as-template";
-import { LazyExportDialog } from "../lazy/lazy-export-dialog";
-import { LazyImportDialog } from "../lazy/lazy-import-dialog";
-import { FloatingActionButton, SpeedDialAction } from "@/components/mobile/floating-action-button";
-import { PullToRefresh } from "@/components/mobile/pull-to-refresh";
-import { QuickAddItemDialog } from "@/components/items/quick-add-item-dialog";
+import { useListActions } from "@/features/lists/hooks/use-list-actions";
+import { useList } from "@/features/lists/hooks/use-list";
+import { getAddItemInput } from "@/features/lists/item-mutation-model";
+import { calculateListProgress } from "@/features/lists/list-model";
+import type { ItemFormValue, ListDocument } from "@/features/lists/types";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { mapError, type UserFacingError } from "@/lib/errors";
 
 interface ListDetailProps {
-  listId: string;
+  listId?: Id<"lists">;
+  list?: ListDocument;
 }
 
-export function ListDetail({ listId }: ListDetailProps) {
-  const { lists, addCategory, reorderCategories, getListProgress, addItem, markListCompleted, markListIncomplete } = useConvexStore();
+export function ListDetail({ list: preloadedList, listId: requestedListId }: ListDetailProps) {
+  const query = useList(preloadedList ? undefined : requestedListId);
+  const list = preloadedList ?? query.list;
+  const loading = !preloadedList && query.loading;
+  const listId = list?._id ?? requestedListId;
+  const {
+    addCategory,
+    addItem,
+    markListCompleted,
+    markListIncomplete,
+    pending,
+    reorderCategories,
+  } = useListActions();
+  const { online } = useOnlineStatus();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryCreationPending, setCategoryCreationPending] = useState(false);
+  const categoryCreationGuard = useRef(false);
   const [isQuickAddItemOpen, setIsQuickAddItemOpen] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [completionPending, setCompletionPending] = useState(false);
+  const [completionError, setCompletionError] =
+    useState<UserFacingError | null>(null);
+  const [listError, setListError] = useState<UserFacingError | null>(null);
   const previouslyAllPacked = useRef(false);
-  
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  const list = useMemo(() => 
-    lists.find(l => l._id === listId || l.id === listId),
-    [lists, listId]
+  const categories = useMemo(
+    () =>
+      [...(list?.categories ?? [])].sort((left, right) => left.order - right.order),
+    [list?.categories],
   );
-  
-  const listCategories = useMemo(() => 
-    list ? [...list.categories].sort((a, b) => a.order - b.order) : [],
-    [list]
+  const progress = list ? calculateListProgress(list) : null;
+  const allItemsPacked = Boolean(
+    progress && progress.totalItems > 0 && progress.packedItems === progress.totalItems,
   );
-  
-  const stats = useMemo(() => 
-    list ? getListProgress(list._id || list.id) : null,
-    [list, getListProgress]
-  );
-  
-  // Extract all items from categories for export functionality
-  const listItems = useMemo(() =>
-    listCategories.flatMap(category => category.items || []),
-    [listCategories]
-  );
-
-  const isAllItemsPacked = useMemo(() => {
-    if (!stats || stats.totalItems === 0) return false;
-    return stats.packedItems === stats.totalItems;
-  }, [stats]);
 
   useEffect(() => {
     if (!list || list.completedAt) return;
-
-    const currentlyAllPacked = isAllItemsPacked && stats && stats.totalItems > 0;
-
-    if (currentlyAllPacked && !previouslyAllPacked.current) {
+    if (allItemsPacked && !previouslyAllPacked.current) {
+      setCompletionError(null);
       setShowCompletionDialog(true);
     }
+    previouslyAllPacked.current = allItemsPacked;
+  }, [allItemsPacked, list]);
 
-    previouslyAllPacked.current = currentlyAllPacked;
-  }, [isAllItemsPacked, stats, list]);
-
-  // Debounced category name input for better performance
-  const debouncedSetCategoryName = useCallback(
-    debounce((value: string) => {
-      setNewCategoryName(value);
-    }, 300),
-    [setNewCategoryName]
-  );
-
-  const handleAddCategory = useCallback(() => {
-    measurePerformance('add-category', () => {
-      if (!newCategoryName.trim()) {
-        toast.error("Please enter a category name");
-        return;
-      }
-
-      const categoryId = addCategory(
-        listId,
-        newCategoryName.trim(),
-        undefined, // color
-        undefined  // icon
-      );
-
-      if (categoryId) {
-        toast.success("Category added successfully");
-        setNewCategoryName("");
-        setIsAddingCategory(false);
-      }
-    });
-  }, [newCategoryName, listId, listCategories.length, addCategory]);
-
-  const handleQuickAddItem = useCallback((categoryId: string, itemData: any) => {
-    measurePerformance('quick-add-item', () => {
-      addItem(
-        categoryId,
-        itemData.name,
-        itemData.quantity,
-        itemData.priority,
-        itemData.notes
-      );
-    });
-  }, [addItem]);
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (active.id !== over?.id) {
-      const oldIndex = listCategories.findIndex((cat) => cat.id === active.id);
-      const newIndex = listCategories.findIndex((cat) => cat.id === over?.id);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const newCategories = arrayMove(listCategories, oldIndex, newIndex);
-        const updatedCategories = newCategories.map((cat, index) => ({
-          ...cat,
-          order: index
-        }));
-
-        reorderCategories(listId, updatedCategories.map(cat => cat.id));
-      }
-    }
-  }, [listCategories, listId, reorderCategories]);
-
-  if (!list) {
+  if (loading) {
+    return <p className="py-16 text-center text-muted-foreground">Loading list…</p>;
+  }
+  if (!list || !listId) {
     return (
-      <div className="flex flex-col items-center justify-center py-16">
-        <Package className="h-16 w-16 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">List not found</h2>
-        <p className="text-muted-foreground">The list you&apos;re looking for doesn&apos;t exist.</p>
+      <div className="flex flex-col items-center py-16">
+        <Package className="mb-4 h-16 w-16 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">List not found</h2>
       </div>
     );
   }
 
-  const getPriorityColor = (priority: Priority) => {
-    switch (priority) {
-      case Priority.ESSENTIAL:
-        return "text-red-600 dark:text-red-400";
-      case Priority.HIGH:
-        return "text-orange-600 dark:text-orange-400";
-      case Priority.MEDIUM:
-        return "text-yellow-600 dark:text-yellow-400";
-      case Priority.LOW:
-        return "text-green-600 dark:text-green-400";
-      default:
-        return "text-gray-600 dark:text-gray-400";
+  const runListAction = async (action: () => void | Promise<unknown>) => {
+    if (!online) return false;
+    setListError(null);
+    try {
+      await action();
+      return true;
+    } catch (error) {
+      setListError(mapError(error));
+      return false;
     }
   };
 
-  const getPriorityIcon = (priority: Priority) => {
-    switch (priority) {
-      case Priority.ESSENTIAL:
-        return <AlertCircle className="h-4 w-4" />;
-      case Priority.HIGH:
-      case Priority.MEDIUM:
-        return <Star className="h-4 w-4" />;
-      default:
-        return null;
+  const handleAddCategory = async () => {
+    if (
+      categoryCreationGuard.current ||
+      !online ||
+      !newCategoryName.trim()
+    ) {
+      return;
+    }
+    categoryCreationGuard.current = true;
+    setCategoryCreationPending(true);
+    try {
+      const added = await runListAction(async () => {
+        const categoryId = await addCategory(
+          { listId, name: newCategoryName.trim() },
+          { rethrow: true },
+        );
+        if (!categoryId) {
+          throw new Error("Category creation did not return an ID");
+        }
+      });
+      if (added) {
+        setNewCategoryName("");
+        setIsAddingCategory(false);
+        toast.success("Category added");
+      }
+    } finally {
+      categoryCreationGuard.current = false;
+      setCategoryCreationPending(false);
     }
   };
 
-  const handleRefresh = async () => {
-    // Simulate refresh - in a real app, this would reload data from the server
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success("List refreshed");
+  const handleQuickAddItem = async (
+    categoryId: Id<"categories">,
+    item: ItemFormValue,
+  ) => {
+    const itemId = await addItem(getAddItemInput(categoryId, item), {
+      rethrow: true,
+    });
+    if (!itemId) throw new Error("Item creation did not return an ID");
+    toast.success("Item added");
   };
 
-  // Handle manual completion toggle
-  const handleToggleCompletion = async () => {
-    if (!list) return;
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (!online || !over || active.id === over.id) return;
+    const oldIndex = categories.findIndex((category) => category._id === active.id);
+    const newIndex = categories.findIndex((category) => category._id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(categories, oldIndex, newIndex);
+    await runListAction(() =>
+      reorderCategories(
+        {
+          listId,
+          categoryIds: reordered.map((category) => category._id),
+        },
+        { rethrow: true },
+      ),
+    );
+  };
 
-    if (list.completedAt) {
-      await markListIncomplete(listId);
-    } else {
-      await markListCompleted(listId);
+  const toggleCompletion = async () => {
+    const changed = await runListAction(() =>
+      list.completedAt
+        ? markListIncomplete({ listId }, { rethrow: true })
+        : markListCompleted({ listId }, { rethrow: true }),
+    );
+    if (changed) {
+      toast.success(list.completedAt ? "List reopened" : "List completed");
     }
   };
 
-  // Handle completion confirmation from dialog
-  const handleConfirmCompletion = async () => {
-    await markListCompleted(listId);
-    setShowCompletionDialog(false);
+  const confirmCompletion = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    if (!online) return;
+    setCompletionPending(true);
+    setCompletionError(null);
+    try {
+      await markListCompleted({ listId }, { rethrow: true });
+      toast.success("List completed");
+      setShowCompletionDialog(false);
+    } catch (error) {
+      setCompletionError(mapError(error));
+    } finally {
+      setCompletionPending(false);
+    }
   };
 
   const mainContent = (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold">{list.name}</h1>
-            {list.description && (
-              <p className="text-muted-foreground">{list.description}</p>
-            )}
+    <div className="space-y-6 print:hidden" data-list-detail>
+      <div className="relative md:pl-7">
+        <span
+          data-route-spine
+          aria-hidden="true"
+          className="route-spine absolute inset-y-0 left-0 hidden md:block"
+        />
+        <PageHeader
+          compact
+          spine="none"
+          className="mb-0"
+          eyebrow={`Active manifest / ${String(categories.length).padStart(2, "0")} categories`}
+          title={list.name}
+          description={list.description}
+          actions={
+            <>
+              <LazyExportDialog listId={listId} />
+              <LazyImportDialog />
+              <SaveAsTemplate list={list} />
+              <Button
+                variant={list.completedAt ? "default" : "outline"}
+                size="sm"
+                disabled={!online || pending}
+                aria-describedby={!online ? "list-detail-offline-reason" : undefined}
+                onClick={() => void toggleCompletion()}
+              >
+                <Check aria-hidden="true" />
+                {list.completedAt ? "Mark incomplete" : "Mark complete"}
+              </Button>
+              <Button asChild variant="outline" size="icon">
+                <Link to={`/lists/${listId}/edit`} aria-label="Edit list">
+                  <Edit2 aria-hidden="true" />
+                </Link>
+              </Button>
+            </>
+          }
+        />
+        <ListProgress list={list} className="mt-6" />
+        {!online ? (
+          <p
+            id="list-detail-offline-reason"
+            role="status"
+            aria-live="polite"
+            className="mt-4 text-sm text-warning"
+          >
+            Reconnect to save changes to this list.
+          </p>
+        ) : null}
+        {listError ? (
+          <div role="alert" className="mt-4 text-sm text-destructive">
+            <p className="font-semibold">{listError.title}</p>
+            <p>{listError.message}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <LazyExportDialog listId={listId} />
-            <LazyImportDialog />
-            <SaveAsTemplate list={list} />
-            <Button
-              variant={list.completedAt ? "default" : "outline"}
-              size="sm"
-              onClick={handleToggleCompletion}
-              className={list.completedAt ? "bg-green-600 hover:bg-green-700" : ""}
-            >
-              <Check className="h-4 w-4 mr-2" />
-              {list.completedAt ? "Mark Incomplete" : "Mark Complete"}
-            </Button>
-            <Button variant="outline" size="icon">
-              <Edit2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Enhanced Progress Display */}
-        <ListProgress list={list} />
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalItems || 0}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Packed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {stats?.packedItems || 0}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Categories
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{listCategories.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Remaining
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {(stats?.totalItems || 0) - (stats?.packedItems || 0)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
+        ) : null}
       </div>
-
-      <Separator />
-
-      {/* Categories Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Categories</h2>
-          <div className="flex gap-2">
-            <Button 
-              size="sm" 
+      <dl className="grid grid-cols-2 border-y border-border sm:grid-cols-4">
+        {[
+          ["Total items", progress?.totalItems ?? 0],
+          ["Packed", progress?.packedItems ?? 0],
+          ["Categories", categories.length],
+          [
+            "Remaining",
+            (progress?.totalItems ?? 0) - (progress?.packedItems ?? 0),
+          ],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="border-b border-border px-4 py-4 last:border-b-0 sm:border-r sm:border-b-0 sm:last:border-r-0"
+          >
+            <dt className="font-mono text-[0.68rem] uppercase tracking-[0.08em] text-muted-foreground">
+              {label}
+            </dt>
+            <dd className="mt-1 font-display text-3xl font-bold tabular-nums">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <section
+        className="space-y-4 border-t border-border pt-6"
+        aria-labelledby="manifest-categories-heading"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-mono text-[0.68rem] uppercase tracking-[0.1em] text-muted-foreground">
+              Operational rows
+            </p>
+            <h2 id="manifest-categories-heading" className="text-2xl font-semibold">
+              Packing manifest
+            </h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
               variant="outline"
-              className="gap-2"
+              disabled={!categories.length}
               onClick={() => setIsQuickAddItemOpen(true)}
-              disabled={listCategories.length === 0}
             >
-              <Package className="h-4 w-4" />
-              Quick Add Item
+              <Package className="mr-2 h-4 w-4" />
+              Quick add item
             </Button>
             <Dialog open={isAddingCategory} onOpenChange={setIsAddingCategory}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Category
+                <Button size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add category
                 </Button>
               </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Category</DialogTitle>
-                <DialogDescription>
-                  Create a new category to organize your packing items.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="category-name">Category Name</Label>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add category</DialogTitle>
+                  <DialogDescription>
+                    Create a category for related packing items.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2 py-4">
+                  <Label htmlFor="category-name">Category name</Label>
                   <Input
                     id="category-name"
                     value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="e.g., Clothing, Electronics, Documents"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleAddCategory();
+                    disabled={categoryCreationPending}
+                    onChange={(event) => setNewCategoryName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !categoryCreationPending) {
+                        event.preventDefault();
+                        void handleAddCategory();
                       }
                     }}
                   />
+                  {!online ? (
+                    <p
+                      id="add-category-offline-reason"
+                      role="status"
+                      aria-live="polite"
+                      className="text-sm text-warning"
+                    >
+                      Reconnect to add this category.
+                    </p>
+                  ) : null}
                 </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddingCategory(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddCategory}>Add Category</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    disabled={categoryCreationPending}
+                    onClick={() => setIsAddingCategory(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={
+                      !online ||
+                      pending ||
+                      categoryCreationPending ||
+                      !newCategoryName.trim()
+                    }
+                    aria-describedby={
+                      !online ? "add-category-offline-reason" : undefined
+                    }
+                    onClick={() => void handleAddCategory()}
+                  >
+                    Add category
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
-
-        {/* Categories List */}
-        {listCategories.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-8">
-              <Package className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground text-center">
-                No categories yet. Add your first category to start organizing items.
-              </p>
-            </CardContent>
-          </Card>
+        {!categories.length ? (
+          <div className="border-y border-border py-10 text-center">
+            <Package
+              className="mx-auto mb-3 h-10 w-10 text-primary"
+              aria-hidden="true"
+            />
+            <p className="text-muted-foreground">
+              Add a category to start organizing items.
+            </p>
+          </div>
         ) : (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+            onDragEnd={(event) => void handleDragEnd(event)}
           >
             <SortableContext
-              items={listCategories.map(cat => cat._id || cat.id || `category-${cat.name}`)}
+              items={categories.map((category) => category._id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-3">
-                {listCategories.map((category) => (
+                {categories.map((category) => (
                   <SortableCategory
-                    key={category._id || category.id || `category-${category.name}`}
+                    key={category._id}
                     listId={listId}
                     category={category}
+                    categories={categories}
+                    online={online}
+                    offlineReasonId="list-detail-offline-reason"
                   />
                 ))}
               </div>
             </SortableContext>
           </DndContext>
         )}
-      </div>
-
-      {/* List Metadata */}
-      <Card>
+      </section>
+      <Card className="bg-surface-muted">
         <CardHeader>
-          <CardTitle className="text-sm font-medium">List Information</CardTitle>
+          <CardTitle
+            as="h2"
+            className="font-mono text-xs uppercase tracking-[0.1em]"
+          >
+            Manifest metadata
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Created</span>
-              <p className="font-medium">{format(new Date(list.createdAt), "PPP")}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Last Updated</span>
-              <p className="font-medium">{format(new Date(list.updatedAt), "PPP")}</p>
-            </div>
-            {list.tags && list.tags.length > 0 && (
-              <div className="col-span-2">
-                <span className="text-muted-foreground">Tags</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {list.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+        <CardContent className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-muted-foreground">Created</span>
+            <p>{format(new Date(list.createdAt ?? list._creationTime), "PPP")}</p>
           </div>
+          <div>
+            <span className="text-muted-foreground">Updated</span>
+            <p>{format(new Date(list.updatedAt ?? list._creationTime), "PPP")}</p>
+          </div>
+          {list.tags?.length ? (
+            <div className="col-span-2 flex flex-wrap gap-1">
+              {list.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
@@ -453,62 +467,76 @@ export function ListDetail({ listId }: ListDetailProps) {
 
   return (
     <>
-      {/* Mobile view with pull-to-refresh */}
+      {mainContent}
+      <PrintView list={list} className="hidden print:block" />
       <div className="md:hidden">
-        <PullToRefresh onRefresh={handleRefresh}>
-          {mainContent}
-        </PullToRefresh>
-        
-        {/* Floating Action Button for Mobile */}
         <FloatingActionButton
           onClick={() => setIsAddingCategory(true)}
           icon={<Plus className="h-6 w-6" />}
-          label="Add Category"
+          label="Add category"
         >
           <SpeedDialAction
             icon={<Plus className="h-4 w-4" />}
-            label="Add Category"
+            label="Add category"
             onClick={() => setIsAddingCategory(true)}
           />
           <SpeedDialAction
             icon={<Package className="h-4 w-4" />}
-            label="Quick Add Item"
+            label="Quick add item"
             onClick={() => setIsQuickAddItemOpen(true)}
           />
         </FloatingActionButton>
       </div>
-
-      {/* Desktop view without pull-to-refresh */}
-      <div className="hidden md:block">
-        {mainContent}
-      </div>
-
-      {/* Quick Add Item Dialog */}
       <QuickAddItemDialog
         open={isQuickAddItemOpen}
         onOpenChange={setIsQuickAddItemOpen}
-        categories={listCategories}
+        categories={categories}
         onAddItem={handleQuickAddItem}
+        online={online}
       />
-
-      {/* Auto-completion Dialog */}
-      <AlertDialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
+      <AlertDialog
+        open={showCompletionDialog}
+        onOpenChange={(nextOpen) => {
+          setShowCompletionDialog(nextOpen);
+          if (!nextOpen) setCompletionError(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>🎉 All Items Packed!</AlertDialogTitle>
+            <AlertDialogTitle>All items packed</AlertDialogTitle>
             <AlertDialogDescription>
-              Congratulations! You've packed all items in "{list?.name}".
-              Would you like to mark this list as completed?
+              Mark “{list.name}” as completed?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Not Yet</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmCompletion}
-              className="bg-green-600 hover:bg-green-700"
+          {completionError ? (
+            <div role="alert" className="text-sm text-destructive">
+              <p className="font-semibold">{completionError.title}</p>
+              <p>{completionError.message}</p>
+            </div>
+          ) : null}
+          {!online ? (
+            <p
+              id="complete-list-offline-reason"
+              role="status"
+              aria-live="polite"
+              className="text-sm text-warning"
             >
-              <Check className="h-4 w-4 mr-2" />
-              Mark as Complete
+              Reconnect to complete this list.
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={completionPending}>
+              Not yet
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!online || completionPending}
+              aria-describedby={
+                !online ? "complete-list-offline-reason" : undefined
+              }
+              aria-busy={completionPending}
+              onClick={(event) => void confirmCompletion(event)}
+            >
+              {completionPending ? "Completing…" : "Mark complete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

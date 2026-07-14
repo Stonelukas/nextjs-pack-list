@@ -34,13 +34,6 @@ export {
   useAuthRedirect
 } from './use-navigation-guard';
 
-// Navigation history and tracking
-export {
-  useNavigationHistory,
-  useVisitedPages,
-  useRecentPages
-} from './use-navigation-history';
-
 // Keyboard shortcuts and helpers
 export {
   useNavigationShortcuts,

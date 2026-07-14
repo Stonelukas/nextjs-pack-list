@@ -1,4 +1,3 @@
-"use client"
 
 import { Priority } from "@/types";
 import { Button } from "@/components/ui/button";

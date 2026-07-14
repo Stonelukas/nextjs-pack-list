@@ -1,42 +1,40 @@
-"use client";
-
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMutation, useQuery } from "convex/react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import {
+  Bell,
+  Database,
+  FileText,
+  Palette,
+  RefreshCw,
+  Server,
   Settings,
   Shield,
-  Database,
-  Mail,
-  Globe,
-  Lock,
-  Bell,
-  Palette,
-  Server,
-  Users,
-  FileText,
-  Save,
-  RefreshCw,
-  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
-interface SystemSettings {
+import { api } from "../../../../convex/_generated/api";
+import { ActionError } from "@/components/feedback/action-error";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { mapError, type UserFacingError } from "@/lib/errors";
+
+interface SystemSettingsValue {
   general: {
     siteName: string;
     siteDescription: string;
@@ -45,7 +43,7 @@ interface SystemSettings {
     maintenanceMode: boolean;
     registrationEnabled: boolean;
     maxUsersPerAccount: number;
-    defaultUserRole: string;
+    defaultUserRole: "user" | "admin";
   };
   security: {
     passwordMinLength: number;
@@ -78,679 +76,215 @@ interface SystemSettings {
   };
 }
 
+function ReadOnlySwitch({ checked, id, label, description }: {
+  checked: boolean;
+  id: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="space-y-0.5">
+        <Label htmlFor={id}>{label}</Label>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Switch id={id} checked={checked} disabled aria-describedby="unsupported-settings-note" />
+    </div>
+  );
+}
+
 export function SystemSettings() {
   const [activeTab, setActiveTab] = useState("general");
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Fetch current settings
-  const settings = useQuery(api.settings.getSystemSettings, {});
-  
-  // Mutations
-  const updateSettings = useMutation(api.settings.updateSystemSettings);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetPending, setResetPending] = useState(false);
+  const [resetError, setResetError] = useState<UserFacingError | null>(null);
+  const { online } = useOnlineStatus();
+  const settings = useQuery(api.settings.getSystemSettings, {}) as SystemSettingsValue | undefined;
+  const exportData = useQuery(api.settings.exportSystemSettings, {});
   const resetSettings = useMutation(api.settings.resetSystemSettings);
-  const exportSettings = useMutation(api.settings.exportSystemSettings);
 
-  // Local state for form data
-  const [formData, setFormData] = useState<SystemSettings>({
-    general: {
-      siteName: settings?.general?.siteName || "Pack List",
-      siteDescription: settings?.general?.siteDescription || "Smart Packing List Tracker",
-      contactEmail: settings?.general?.contactEmail || "contact@packlistapp.com",
-      supportEmail: settings?.general?.supportEmail || "support@packlistapp.com",
-      maintenanceMode: settings?.general?.maintenanceMode || false,
-      registrationEnabled: settings?.general?.registrationEnabled || true,
-      maxUsersPerAccount: settings?.general?.maxUsersPerAccount || 1000,
-      defaultUserRole: settings?.general?.defaultUserRole || "user",
-    },
-    security: {
-      passwordMinLength: settings?.security?.passwordMinLength || 8,
-      requireTwoFactor: settings?.security?.requireTwoFactor || false,
-      sessionTimeout: settings?.security?.sessionTimeout || 24,
-      maxLoginAttempts: settings?.security?.maxLoginAttempts || 5,
-      enableCaptcha: settings?.security?.enableCaptcha || false,
-      allowedDomains: settings?.security?.allowedDomains || [],
-    },
-    notifications: {
-      emailNotifications: settings?.notifications?.emailNotifications || true,
-      pushNotifications: settings?.notifications?.pushNotifications || true,
-      adminAlerts: settings?.notifications?.adminAlerts || true,
-      userWelcomeEmail: settings?.notifications?.userWelcomeEmail || true,
-      systemUpdates: settings?.notifications?.systemUpdates || true,
-    },
-    appearance: {
-      defaultTheme: settings?.appearance?.defaultTheme || "system",
-      allowThemeSelection: settings?.appearance?.allowThemeSelection || true,
-      customLogo: settings?.appearance?.customLogo || "",
-      primaryColor: settings?.appearance?.primaryColor || "#0f172a",
-      accentColor: settings?.appearance?.accentColor || "#3b82f6",
-    },
-    performance: {
-      cacheEnabled: settings?.performance?.cacheEnabled || true,
-      cacheDuration: settings?.performance?.cacheDuration || 3600,
-      compressionEnabled: settings?.performance?.compressionEnabled || true,
-      cdnEnabled: settings?.performance?.cdnEnabled || false,
-      maxFileSize: settings?.performance?.maxFileSize || 10,
-    },
-  });
-
-  const handleSaveSettings = async () => {
-    setIsLoading(true);
-    try {
-      await updateSettings({ settings: formData });
-      toast.success("Settings saved successfully");
-    } catch (error) {
-      toast.error("Failed to save settings");
-      console.error("Settings save error:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResetSettings = async () => {
-    setIsLoading(true);
+  const handleResetSettings = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    if (!online || resetPending) return;
+    setResetPending(true);
+    setResetError(null);
     try {
       await resetSettings({});
-      toast.success("Settings reset to defaults");
-      // Refresh the page to reload default settings
-      window.location.reload();
+      toast.success("Stored settings reset to defaults");
+      setResetOpen(false);
     } catch (error) {
-      toast.error("Failed to reset settings");
-      console.error("Settings reset error:", error);
+      setResetError(mapError(error));
     } finally {
-      setIsLoading(false);
+      setResetPending(false);
     }
   };
 
-  const handleExportSettings = async () => {
-    try {
-      const exportData = await exportSettings({});
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `system-settings-${new Date().toISOString().split("T")[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("Settings exported successfully");
-    } catch (error) {
-      toast.error("Failed to export settings");
-      console.error("Settings export error:", error);
+  const handleExportSettings = () => {
+    if (!exportData) {
+      toast.error("Settings export is still loading");
+      return;
     }
-  };
-
-  const updateFormData = (section: keyof SystemSettings, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value,
-      },
-    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `system-settings-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    toast.success("Settings exported successfully");
   };
 
   if (!settings) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>System Settings</CardTitle>
+          <CardTitle as="h2">System Settings</CardTitle>
           <CardDescription>Loading system configuration...</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
       </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div data-system-settings-header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">System Settings</h2>
-          <p className="text-muted-foreground">
-            Configure application settings and preferences
-          </p>
+          <p className="text-muted-foreground">Inspect legacy stored configuration.</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div data-system-settings-actions className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
           <Button variant="outline" onClick={handleExportSettings}>
-            <FileText className="h-4 w-4 mr-2" />
-            Export
+            <FileText className="mr-2 h-4 w-4" />Export
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleResetSettings}
-            disabled={isLoading}
+          <Button
+            variant="outline"
+            disabled={!online || resetPending}
+            aria-describedby={!online ? "system-settings-offline-reason" : undefined}
+            onClick={() => {
+              setResetError(null);
+              setResetOpen(true);
+            }}
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
-          <Button onClick={handleSaveSettings} disabled={isLoading}>
-            <Save className="h-4 w-4 mr-2" />
-            {isLoading ? "Saving..." : "Save Changes"}
+            <RefreshCw className="mr-2 h-4 w-4" />Reset
           </Button>
         </div>
       </div>
 
-      {/* Settings Tabs */}
+      <div id="unsupported-settings-note" role="note" className="rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
+        <p className="font-semibold">Stored for reference only — not enforced</p>
+        <p className="mt-1 text-muted-foreground">
+          Clerk controls registration, authentication, two-factor security, CAPTCHA, and sessions. Notifications and branding have no runtime consumer. Compression, caching, CDN, and file limits belong to deployment configuration. These values are read-only until an enforcement path exists.
+        </p>
+      </div>
+      {!online ? <p id="system-settings-offline-reason" className="text-sm text-warning">Reconnect to reset stored system settings.</p> : null}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general" className="flex items-center space-x-2">
-            <Settings className="h-4 w-4" />
-            <span>General</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center space-x-2">
-            <Shield className="h-4 w-4" />
-            <span>Security</span>
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center space-x-2">
-            <Bell className="h-4 w-4" />
-            <span>Notifications</span>
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex items-center space-x-2">
-            <Palette className="h-4 w-4" />
-            <span>Appearance</span>
-          </TabsTrigger>
-          <TabsTrigger value="performance" className="flex items-center space-x-2">
-            <Server className="h-4 w-4" />
-            <span>Performance</span>
-          </TabsTrigger>
+        <TabsList data-system-settings-tabs className="flex h-auto w-full justify-start overflow-x-auto">
+          <TabsTrigger value="general"><Settings className="h-4 w-4" />General</TabsTrigger>
+          <TabsTrigger value="security"><Shield className="h-4 w-4" />Security</TabsTrigger>
+          <TabsTrigger value="notifications"><Bell className="h-4 w-4" />Notifications</TabsTrigger>
+          <TabsTrigger value="appearance"><Palette className="h-4 w-4" />Appearance</TabsTrigger>
+          <TabsTrigger value="performance"><Server className="h-4 w-4" />Performance</TabsTrigger>
         </TabsList>
 
-        {/* General Settings */}
-        <TabsContent value="general" className="space-y-4">
+        <TabsContent value="general">
           <Card>
-            <CardHeader>
-              <CardTitle>General Configuration</CardTitle>
-              <CardDescription>
-                Basic application settings and configuration
-              </CardDescription>
-            </CardHeader>
+            <CardHeader><CardTitle as="h3">General Configuration</CardTitle><CardDescription>Read-only legacy values.</CardDescription></CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="siteName">Site Name</Label>
-                  <Input
-                    id="siteName"
-                    value={formData.general.siteName}
-                    onChange={(e) => updateFormData("general", "siteName", e.target.value)}
-                    placeholder="Pack List"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contactEmail">Contact Email</Label>
-                  <Input
-                    id="contactEmail"
-                    type="email"
-                    value={formData.general.contactEmail}
-                    onChange={(e) => updateFormData("general", "contactEmail", e.target.value)}
-                    placeholder="contact@packlistapp.com"
-                  />
-                </div>
+                <div className="space-y-2"><Label htmlFor="siteName">Site Name</Label><Input id="siteName" value={settings.general.siteName} disabled /></div>
+                <div className="space-y-2"><Label htmlFor="contactEmail">Contact Email</Label><Input id="contactEmail" value={settings.general.contactEmail} disabled /></div>
               </div>
+              <ReadOnlySwitch id="maintenance-mode" label="Maintenance Mode" description="Not connected to routing or Convex access." checked={settings.general.maintenanceMode} />
+              <ReadOnlySwitch id="registration-enabled" label="Registration Enabled" description="Registration is managed in Clerk." checked={settings.general.registrationEnabled} />
+              <div className="space-y-2"><Label htmlFor="defaultRole">Default User Role</Label><Select disabled value={settings.general.defaultUserRole}><SelectTrigger id="defaultRole"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select></div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <div className="space-y-2">
-                <Label htmlFor="siteDescription">Site Description</Label>
-                <Textarea
-                  id="siteDescription"
-                  value={formData.general.siteDescription}
-                  onChange={(e) => updateFormData("general", "siteDescription", e.target.value)}
-                  placeholder="Smart Packing List Tracker"
-                  rows={3}
-                />
-              </div>
-
+        <TabsContent value="security">
+          <Card>
+            <CardHeader><CardTitle as="h3">Security Configuration</CardTitle><CardDescription>Security policy must be configured in Clerk.</CardDescription></CardHeader>
+            <CardContent className="space-y-6">
+              <ReadOnlySwitch id="require-two-factor" label="Two-Factor Authentication" description="Not enforced by this application." checked={settings.security.requireTwoFactor} />
+              <ReadOnlySwitch id="enable-captcha" label="Enable CAPTCHA" description="Not enforced by this application." checked={settings.security.enableCaptcha} />
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="supportEmail">Support Email</Label>
-                  <Input
-                    id="supportEmail"
-                    type="email"
-                    value={formData.general.supportEmail}
-                    onChange={(e) => updateFormData("general", "supportEmail", e.target.value)}
-                    placeholder="support@packlistapp.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maxUsers">Max Users Per Account</Label>
-                  <Input
-                    id="maxUsers"
-                    type="number"
-                    value={formData.general.maxUsersPerAccount}
-                    onChange={(e) => updateFormData("general", "maxUsersPerAccount", parseInt(e.target.value))}
-                    min="1"
-                    max="10000"
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium">System Controls</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Maintenance Mode</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Temporarily disable access for maintenance
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.general.maintenanceMode}
-                      onCheckedChange={(checked) => updateFormData("general", "maintenanceMode", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Registration Enabled</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Allow new users to register accounts
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.general.registrationEnabled}
-                      onCheckedChange={(checked) => updateFormData("general", "registrationEnabled", checked)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="defaultRole">Default User Role</Label>
-                <Select
-                  value={formData.general.defaultUserRole}
-                  onValueChange={(value) => updateFormData("general", "defaultUserRole", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="moderator">Moderator</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2"><Label htmlFor="passwordMinLength">Minimum Password Length</Label><Input id="passwordMinLength" value={settings.security.passwordMinLength} disabled /></div>
+                <div className="space-y-2"><Label htmlFor="sessionTimeout">Session Timeout (hours)</Label><Input id="sessionTimeout" value={settings.security.sessionTimeout} disabled /></div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Security Settings */}
-        <TabsContent value="security" className="space-y-4">
+        <TabsContent value="notifications">
           <Card>
-            <CardHeader>
-              <CardTitle>Security Configuration</CardTitle>
-              <CardDescription>
-                Manage security settings and access controls
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="passwordMinLength">Minimum Password Length</Label>
-                  <Input
-                    id="passwordMinLength"
-                    type="number"
-                    value={formData.security.passwordMinLength}
-                    onChange={(e) => updateFormData("security", "passwordMinLength", parseInt(e.target.value))}
-                    min="6"
-                    max="32"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sessionTimeout">Session Timeout (hours)</Label>
-                  <Input
-                    id="sessionTimeout"
-                    type="number"
-                    value={formData.security.sessionTimeout}
-                    onChange={(e) => updateFormData("security", "sessionTimeout", parseInt(e.target.value))}
-                    min="1"
-                    max="168"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
-                <Input
-                  id="maxLoginAttempts"
-                  type="number"
-                  value={formData.security.maxLoginAttempts}
-                  onChange={(e) => updateFormData("security", "maxLoginAttempts", parseInt(e.target.value))}
-                  min="3"
-                  max="10"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Number of failed login attempts before account lockout
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium">Security Features</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Two-Factor Authentication</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Require 2FA for all user accounts
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.security.requireTwoFactor}
-                      onCheckedChange={(checked) => updateFormData("security", "requireTwoFactor", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Enable CAPTCHA</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Show CAPTCHA on login and registration forms
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.security.enableCaptcha}
-                      onCheckedChange={(checked) => updateFormData("security", "enableCaptcha", checked)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="allowedDomains">Allowed Email Domains</Label>
-                <Textarea
-                  id="allowedDomains"
-                  value={formData.security.allowedDomains.join("\n")}
-                  onChange={(e) => updateFormData("security", "allowedDomains", e.target.value.split("\n").filter(d => d.trim()))}
-                  placeholder="example.com&#10;company.org&#10;university.edu"
-                  rows={4}
-                />
-                <p className="text-sm text-muted-foreground">
-                  One domain per line. Leave empty to allow all domains.
-                </p>
-              </div>
+            <CardHeader><CardTitle as="h3">Notification Configuration</CardTitle><CardDescription>No notification delivery service consumes these values.</CardDescription></CardHeader>
+            <CardContent className="space-y-5">
+              <ReadOnlySwitch id="email-notifications" label="Email Notifications" description="Unsupported." checked={settings.notifications.emailNotifications} />
+              <ReadOnlySwitch id="push-notifications" label="Push Notifications" description="Unsupported." checked={settings.notifications.pushNotifications} />
+              <ReadOnlySwitch id="admin-alerts" label="Admin Alerts" description="Unsupported." checked={settings.notifications.adminAlerts} />
+              <ReadOnlySwitch id="user-welcome-email" label="User Welcome Email" description="Unsupported." checked={settings.notifications.userWelcomeEmail} />
+              <ReadOnlySwitch id="system-updates" label="System Updates" description="Unsupported." checked={settings.notifications.systemUpdates} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Notifications Settings */}
-        <TabsContent value="notifications" className="space-y-4">
+        <TabsContent value="appearance">
           <Card>
-            <CardHeader>
-              <CardTitle>Notification Configuration</CardTitle>
-              <CardDescription>
-                Manage system notifications and alerts
-              </CardDescription>
-            </CardHeader>
+            <CardHeader><CardTitle as="h3">Appearance Configuration</CardTitle><CardDescription>The runtime theme uses authenticated user preferences instead.</CardDescription></CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium">Notification Types</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Send notifications via email
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.notifications.emailNotifications}
-                      onCheckedChange={(checked) => updateFormData("notifications", "emailNotifications", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Push Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Send browser push notifications
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.notifications.pushNotifications}
-                      onCheckedChange={(checked) => updateFormData("notifications", "pushNotifications", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Admin Alerts</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Send alerts to administrators
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.notifications.adminAlerts}
-                      onCheckedChange={(checked) => updateFormData("notifications", "adminAlerts", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>User Welcome Email</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Send welcome email to new users
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.notifications.userWelcomeEmail}
-                      onCheckedChange={(checked) => updateFormData("notifications", "userWelcomeEmail", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>System Updates</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Notify about system updates and maintenance
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.notifications.systemUpdates}
-                      onCheckedChange={(checked) => updateFormData("notifications", "systemUpdates", checked)}
-                    />
-                  </div>
-                </div>
+              <div className="space-y-2"><Label htmlFor="defaultTheme">Default Theme</Label><Select disabled value={settings.appearance.defaultTheme}><SelectTrigger id="defaultTheme"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="light">Light</SelectItem><SelectItem value="dark">Dark</SelectItem><SelectItem value="system">System</SelectItem></SelectContent></Select></div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="primaryColor">Primary Color</Label><Input id="primaryColor" aria-label="Primary Color hex value" value={settings.appearance.primaryColor} disabled /></div>
+                <div className="space-y-2"><Label htmlFor="accentColor">Accent Color</Label><Input id="accentColor" aria-label="Accent Color hex value" value={settings.appearance.accentColor} disabled /></div>
               </div>
+              <ReadOnlySwitch id="allow-theme-selection" label="Allow Theme Selection" description="Unsupported system-wide setting." checked={settings.appearance.allowThemeSelection} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Appearance Settings */}
-        <TabsContent value="appearance" className="space-y-4">
+        <TabsContent value="performance">
           <Card>
-            <CardHeader>
-              <CardTitle>Appearance Configuration</CardTitle>
-              <CardDescription>
-                Customize the look and feel of the application
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="defaultTheme">Default Theme</Label>
-                  <Select
-                    value={formData.appearance.defaultTheme}
-                    onValueChange={(value) => updateFormData("appearance", "defaultTheme", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="system">System</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customLogo">Custom Logo URL</Label>
-                  <Input
-                    id="customLogo"
-                    value={formData.appearance.customLogo}
-                    onChange={(e) => updateFormData("appearance", "customLogo", e.target.value)}
-                    placeholder="https://example.com/logo.png"
-                  />
-                </div>
+            <CardHeader><CardTitle as="h3">Performance Configuration</CardTitle><CardDescription>Configure these settings in hosting and build infrastructure.</CardDescription></CardHeader>
+            <CardContent className="space-y-5">
+              <ReadOnlySwitch id="enable-caching" label="Enable Caching" description="Deployment-owned." checked={settings.performance.cacheEnabled} />
+              <ReadOnlySwitch id="enable-compression" label="Enable Compression" description="Deployment-owned." checked={settings.performance.compressionEnabled} />
+              <ReadOnlySwitch id="enable-cdn" label="Enable CDN" description="Deployment-owned." checked={settings.performance.cdnEnabled} />
+              <div data-cache-notice className="rounded-lg border border-border bg-surface-muted p-4">
+                <div className="flex items-start gap-2"><Database className="mt-0.5 h-5 w-5 text-muted-foreground" /><p className="text-sm text-muted-foreground">Stored cache duration: {settings.performance.cacheDuration} seconds. This value is not active.</p></div>
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="primaryColor">Primary Color</Label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      id="primaryColor"
-                      type="color"
-                      value={formData.appearance.primaryColor}
-                      onChange={(e) => updateFormData("appearance", "primaryColor", e.target.value)}
-                      className="w-16 h-10"
-                    />
-                    <Input
-                      value={formData.appearance.primaryColor}
-                      onChange={(e) => updateFormData("appearance", "primaryColor", e.target.value)}
-                      placeholder="#0f172a"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="accentColor">Accent Color</Label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      id="accentColor"
-                      type="color"
-                      value={formData.appearance.accentColor}
-                      onChange={(e) => updateFormData("appearance", "accentColor", e.target.value)}
-                      className="w-16 h-10"
-                    />
-                    <Input
-                      value={formData.appearance.accentColor}
-                      onChange={(e) => updateFormData("appearance", "accentColor", e.target.value)}
-                      placeholder="#3b82f6"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Allow Theme Selection</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Allow users to choose their preferred theme
-                  </p>
-                </div>
-                <Switch
-                  checked={formData.appearance.allowThemeSelection}
-                  onCheckedChange={(checked) => updateFormData("appearance", "allowThemeSelection", checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Performance Settings */}
-        <TabsContent value="performance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Configuration</CardTitle>
-              <CardDescription>
-                Optimize application performance and resource usage
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="cacheDuration">Cache Duration (seconds)</Label>
-                  <Input
-                    id="cacheDuration"
-                    type="number"
-                    value={formData.performance.cacheDuration}
-                    onChange={(e) => updateFormData("performance", "cacheDuration", parseInt(e.target.value))}
-                    min="60"
-                    max="86400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maxFileSize">Max File Size (MB)</Label>
-                  <Input
-                    id="maxFileSize"
-                    type="number"
-                    value={formData.performance.maxFileSize}
-                    onChange={(e) => updateFormData("performance", "maxFileSize", parseInt(e.target.value))}
-                    min="1"
-                    max="100"
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium">Performance Features</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Enable Caching</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Cache frequently accessed data for better performance
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.performance.cacheEnabled}
-                      onCheckedChange={(checked) => updateFormData("performance", "cacheEnabled", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Enable Compression</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Compress responses to reduce bandwidth usage
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.performance.compressionEnabled}
-                      onCheckedChange={(checked) => updateFormData("performance", "compressionEnabled", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Enable CDN</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Use Content Delivery Network for static assets
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.performance.cdnEnabled}
-                      onCheckedChange={(checked) => updateFormData("performance", "cdnEnabled", checked)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {formData.performance.cacheEnabled && (
-                <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <div className="flex items-start space-x-2">
-                    <Database className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <h5 className="font-medium text-blue-900 dark:text-blue-100">
-                        Cache Configuration
-                      </h5>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        Caching is enabled. Data will be cached for {formData.performance.cacheDuration} seconds.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={resetOpen} onOpenChange={(open) => {
+        if (resetPending && !open) return;
+        setResetOpen(open);
+        if (!open) setResetError(null);
+      }}>
+        <AlertDialogContent aria-busy={resetPending}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset stored system settings?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All stored system settings across general, security, notifications, appearance, and performance will return to defaults. This does not change Clerk or deployment configuration.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {resetError ? <ActionError error={resetError} /> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={resetPending || !online} onClick={(event) => void handleResetSettings(event)}>
+              {resetPending ? "Resetting…" : "Reset all stored settings"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

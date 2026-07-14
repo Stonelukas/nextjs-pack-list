@@ -1,5 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { preferencesValidator } from "./lib/preferences";
+import { priorityValidator } from "./lib/validation";
 
 export default defineSchema({
   users: defineTable({
@@ -7,12 +9,9 @@ export default defineSchema({
     name: v.string(),
     email: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    role: v.optional(v.union(v.literal("user"), v.literal("admin"))),
     tokenIdentifier: v.optional(v.string()), // For Convex auth
-    preferences: v.optional(v.object({
-      theme: v.string(),
-      defaultPriority: v.string(),
-      autoSave: v.boolean(),
-    })),
+    preferences: v.optional(preferencesValidator),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })
@@ -32,6 +31,7 @@ export default defineSchema({
     updatedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
+    .index("by_user_template", ["userId", "isTemplate"])
     .index("by_template", ["isTemplate"])
     .index("by_public", ["isPublic"])
     .index("by_completed", ["completedAt"]),
@@ -54,7 +54,7 @@ export default defineSchema({
     name: v.string(),
     quantity: v.number(),
     packed: v.boolean(),
-    priority: v.string(),
+    priority: priorityValidator,
     notes: v.optional(v.string()),
     description: v.optional(v.string()),
     weight: v.optional(v.number()),
@@ -75,32 +75,63 @@ export default defineSchema({
     difficulty: v.optional(v.string()),
     season: v.optional(v.string()),
     duration: v.optional(v.string()),
+    icon: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     isPublic: v.optional(v.boolean()),
     isOfficial: v.optional(v.boolean()),
     createdBy: v.optional(v.id("users")),
     usageCount: v.optional(v.number()),
     rating: v.optional(v.number()),
+    categoryCount: v.optional(v.number()),
+    itemCount: v.optional(v.number()),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })
     .index("by_category", ["category"])
     .index("by_public", ["isPublic"])
     .index("by_creator", ["createdBy"])
+    .index("by_creator_public", ["createdBy", "isPublic"])
     .index("by_official", ["isOfficial"])
     .index("by_usage", ["usageCount"])
     .index("by_rating", ["rating"]),
   
+  templateCategories: defineTable({
+    templateId: v.id("templates"),
+    name: v.string(),
+    color: v.optional(v.string()),
+    icon: v.optional(v.string()),
+    order: v.number(),
+    collapsed: v.optional(v.boolean()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_template", ["templateId"])
+    .index("by_template_order", ["templateId", "order"]),
+
+  templateStats: defineTable({
+    key: v.literal("global"),
+    totalTemplates: v.number(),
+    totalUsage: v.number(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   templateItems: defineTable({
     templateId: v.id("templates"),
+    templateCategoryId: v.optional(v.id("templateCategories")),
     categoryName: v.string(),
     name: v.string(),
     quantity: v.number(),
-    priority: v.string(),
+    priority: priorityValidator,
     notes: v.optional(v.string()),
+    description: v.optional(v.string()),
+    weight: v.optional(v.number()),
+    tags: v.optional(v.array(v.string())),
     order: v.optional(v.number()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
   })
     .index("by_template", ["templateId"])
+    .index("by_template_category_id", ["templateCategoryId"])
     .index("by_template_category", ["templateId", "categoryName"]),
   
   listShares: defineTable({
@@ -131,6 +162,27 @@ export default defineSchema({
   })
     .index("by_user", ["userId"]),
 
+  legacyImports: defineTable({
+    userId: v.id("users"),
+    sourceKey: v.literal("zustand:pack-list-storage:v1"),
+    fingerprint: v.string(),
+    listsImported: v.number(),
+    templatesImported: v.number(),
+    importedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_source_fingerprint", [
+      "userId",
+      "sourceKey",
+      "fingerprint",
+    ]),
+
+  userDeletionJobs: defineTable({
+    userId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   moderation: defineTable({
     contentId: v.string(), // ID of the content being moderated
     contentType: v.string(), // "list", "template", "user_profile", "category"
@@ -146,6 +198,7 @@ export default defineSchema({
     .index("by_content", ["contentId", "contentType"])
     .index("by_status", ["status"])
     .index("by_content_type", ["contentType"])
+    .index("by_status_content_type", ["status", "contentType"])
     .index("by_moderator", ["moderatorId"]),
 
   moderationHistory: defineTable({
@@ -159,7 +212,8 @@ export default defineSchema({
     timestamp: v.number(),
   })
     .index("by_content", ["contentId", "contentType"])
-    .index("by_timestamp", ["timestamp"]),
+    .index("by_timestamp", ["timestamp"])
+    .index("by_moderator", ["moderatorId"]),
 
   systemSettings: defineTable({
     general: v.optional(v.object({

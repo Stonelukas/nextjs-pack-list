@@ -1,10 +1,5 @@
-# Robots.txt for Pack List
-
+# Route Ledger is a client-rendered static application. Public routes may be
+# crawled; authenticated content remains protected by Clerk and Convex rather
+# than robots directives.
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /_next/
-Disallow: /static/
-
-# Sitemap location
-Sitemap: https://packlist.app/sitemap.xml

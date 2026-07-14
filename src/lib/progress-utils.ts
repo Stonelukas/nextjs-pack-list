@@ -1,4 +1,4 @@
-import { Item, Category, List, Priority } from "@/types";
+import { Item, Priority } from "@/types";
 
 /**
  * Calculate overall progress percentage for a list of items

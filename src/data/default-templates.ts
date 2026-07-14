@@ -1,4 +1,4 @@
-import { Template, Priority, TemplateCategory, Item, Category } from '@/types';
+import { Template, Priority, TemplateCategory, Item, Category, List } from '@/types';
 
 // Helper to create template items
 const createTemplateItem = (
@@ -514,7 +514,6 @@ export const createListFromTemplate = (
     description: `Created from template: ${template.name}`,
     categories: categoriesWithIds,
     tags: template.tags,
-    isTemplate: false,
     templateId: template.id,
     userId,
     sharedWith: [],

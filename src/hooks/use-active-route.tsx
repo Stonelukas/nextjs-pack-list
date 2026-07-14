@@ -1,6 +1,5 @@
-"use client";
 
-import { usePathname } from "next/navigation";
+import { useLocation } from "react-router-dom";
 import { useMemo } from "react";
 
 interface RouteConfig {
@@ -13,7 +12,7 @@ interface RouteConfig {
  * Hook to determine if a route is active based on the current pathname
  */
 export function useActiveRoute(route: string | RouteConfig, exact = false): boolean {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   return useMemo(() => {
     const routePath = typeof route === "string" ? route : route.path;
@@ -37,7 +36,7 @@ export function useActiveRoute(route: string | RouteConfig, exact = false): bool
  * Hook to get the active route from a list of routes
  */
 export function useActiveRouteFromList(routes: RouteConfig[]): RouteConfig | null {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   return useMemo(() => {
     // Sort routes by path length (longest first) for more specific matches
@@ -64,7 +63,7 @@ export function useActiveRouteFromList(routes: RouteConfig[]): RouteConfig | nul
  * Hook to check if any of the child routes are active
  */
 export function useHasActiveChild(parentPath: string, childPaths: string[]): boolean {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   return useMemo(() => {
     // Check if we're on the parent path itself

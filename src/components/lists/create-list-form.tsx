@@ -1,20 +1,38 @@
-"use client"
-
-import { useState } from "react";
-import { useConvexStore } from "@/hooks/use-convex-store";
-import { useAuth } from "@/contexts/auth-context";
-import { useAnalytics } from "@/hooks/useAnalytics";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, FileText, Package } from "lucide-react";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useRef, useState } from "react";
+import { FileText, Package, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useListActions } from "@/features/lists/hooks/use-list-actions";
+import {
+  useTemplateDetail,
+  useTemplates,
+} from "@/features/templates/hooks/use-templates";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+
 interface CreateListFormProps {
-  onSuccess?: (listId: string) => void;
+  onSuccess?: (listId: Id<"lists">) => void;
   trigger?: React.ReactNode;
 }
 
@@ -23,187 +41,172 @@ export function CreateListForm({ onSuccess, trigger }: CreateListFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [createFrom, setCreateFrom] = useState<"scratch" | "template">("scratch");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
-  const [isCreating, setIsCreating] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<Id<"templates"> | "">("");
+  const submissionGuard = useRef(false);
+  const { online } = useOnlineStatus();
+  const {
+    createList,
+    error: listError,
+    pending: listPending,
+  } = useListActions();
+  const {
+    applyTemplate,
+    error: templateError,
+    pending: templatePending,
+    templates,
+  } = useTemplates();
+  const { template: selectedTemplate, loading: selectedTemplateLoading } =
+    useTemplateDetail(
+      createFrom === "template" && selectedTemplateId
+        ? selectedTemplateId
+        : undefined,
+    );
+  const pending = listPending || templatePending;
+  const error = createFrom === "template" ? templateError : listError;
+  const templateUnavailable =
+    createFrom === "template" &&
+    (!selectedTemplateId || selectedTemplateLoading || !selectedTemplate);
 
-  const { createList, templates, applyTemplate } = useConvexStore();
-  const { user } = useAuth();
-  const { trackListCreated, trackTemplateUsed } = useAnalytics();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name.trim()) {
-      toast.error("Please enter a list name");
-      return;
-    }
-
-    setIsCreating(true);
-
-    try {
-      let listId: string;
-      
-      if (createFrom === "template" && selectedTemplateId) {
-        // Create list from template
-        listId = await applyTemplate(selectedTemplateId, name.trim());
-        if (!listId) {
-          throw new Error("Failed to create list from template");
-        }
-        const template = templates.find(t => t.id === selectedTemplateId);
-
-        // Track template usage
-        if (template) {
-          trackTemplateUsed(
-            template.name,
-            template.categories?.length || 0,
-            template.categories?.reduce((total, cat) => total + (cat.items?.length || 0), 0) || 0
-          );
-        }
-        trackListCreated('template', template?.name);
-        toast.success("List created from template!");
-      } else {
-        // Create list from scratch
-        listId = await createList(
-          name.trim(),
-          description.trim(),
-          []
-        );
-        if (!listId) {
-          throw new Error("Failed to create list");
-        }
-        trackListCreated('custom');
-        toast.success("List created successfully!");
-      }
-
-      // Reset form
-      setName("");
-      setDescription("");
-      setCreateFrom("scratch");
-      setSelectedTemplateId("");
-      setOpen(false);
-
-      // Call success callback if provided
-      if (onSuccess) {
-        onSuccess(listId);
-      }
-    } catch (error) {
-      toast.error("Failed to create list");
-      console.error("Error creating list:", error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleCancel = () => {
+  const reset = () => {
     setName("");
     setDescription("");
     setCreateFrom("scratch");
     setSelectedTemplateId("");
-    setOpen(false);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!online || submissionGuard.current) return;
+    if (!name.trim()) {
+      toast.error("Please enter a list name");
+      return;
+    }
+    if (createFrom === "template" && !selectedTemplate) return;
+
+    submissionGuard.current = true;
+    try {
+      const listId =
+        createFrom === "template" && selectedTemplate
+          ? await applyTemplate({
+              templateId: selectedTemplate._id,
+              listName: name.trim(),
+              listDescription: description.trim() || undefined,
+            })
+          : await createList({
+              name: name.trim(),
+              description: description.trim() || undefined,
+              tags: [],
+            });
+
+      if (!listId) return;
+      toast.success(
+        createFrom === "template"
+          ? "List created from template"
+          : "List created successfully",
+      );
+      reset();
+      setOpen(false);
+      onSuccess?.(listId);
+    } finally {
+      submissionGuard.current = false;
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (submissionGuard.current && !nextOpen) return;
+        setOpen(nextOpen);
+        if (!nextOpen) reset();
+      }}
+    >
       <DialogTrigger asChild>
-        {trigger || (
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            Create New List
-          </Button>
-        )}
+        {trigger ?? <Button><Plus className="mr-2 h-4 w-4" />Create new list</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[525px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create New Packing List</DialogTitle>
-            <DialogDescription>
-              Start a new packing list from scratch or use a template to get started quickly.
-            </DialogDescription>
+            <DialogTitle>Create new packing list</DialogTitle>
+            <DialogDescription>Start from scratch or apply a visible template.</DialogDescription>
           </DialogHeader>
-          
           <div className="grid gap-4 py-4">
-            {/* Create From Selection */}
-            <div className="grid gap-2">
-              <Label>Start from</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={createFrom === "scratch" ? "default" : "outline"}
-                  className="justify-start gap-2"
-                  onClick={() => setCreateFrom("scratch")}
+            <fieldset className="grid gap-2">
+              <legend className="text-sm font-medium">Start from</legend>
+              <RadioGroup
+                aria-label="Start from"
+                value={createFrom}
+                onValueChange={(value) => setCreateFrom(value as "scratch" | "template")}
+                className="grid grid-cols-2 gap-2"
+              >
+                <Label
+                  htmlFor="create-from-scratch"
+                  className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary has-[[data-state=checked]]:text-primary-foreground"
                 >
-                  <Package className="h-4 w-4" />
-                  Scratch
-                </Button>
-                <Button
-                  type="button"
-                  variant={createFrom === "template" ? "default" : "outline"}
-                  className="justify-start gap-2"
-                  onClick={() => setCreateFrom("template")}
-                  disabled={templates.length === 0}
+                  <RadioGroupItem id="create-from-scratch" value="scratch" />
+                  <Package className="h-4 w-4" aria-hidden="true" />Scratch
+                </Label>
+                <Label
+                  htmlFor="create-from-template"
+                  className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary has-[[data-state=checked]]:text-primary-foreground"
                 >
-                  <FileText className="h-4 w-4" />
-                  Template
-                </Button>
-              </div>
-            </div>
-
-            {/* Template Selection */}
-            {createFrom === "template" && templates.length > 0 && (
+                  <RadioGroupItem
+                    id="create-from-template"
+                    value="template"
+                    disabled={!templates?.length}
+                  />
+                  <FileText className="h-4 w-4" aria-hidden="true" />Template
+                </Label>
+              </RadioGroup>
+            </fieldset>
+            {createFrom === "template" ? (
               <div className="grid gap-2">
-                <Label htmlFor="template">Choose Template</Label>
-                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                  <SelectTrigger id="template">
-                    <SelectValue placeholder="Select a template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        <div>
-                          <div className="font-medium">{template.name}</div>
-                          {template.description && (
-                            <div className="text-sm text-muted-foreground">{template.description}</div>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Label htmlFor="create-template">Template</Label>
+                <Select value={selectedTemplateId} onValueChange={(value) => setSelectedTemplateId(value as Id<"templates">)}>
+                  <SelectTrigger id="create-template"><SelectValue placeholder="Select a template" /></SelectTrigger>
+                  <SelectContent>{(templates ?? []).map((template) => <SelectItem key={template._id} value={template._id}>{template.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-            )}
-
-            {/* List Name */}
-            <div className="grid gap-2">
-              <Label htmlFor="name">List Name *</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Weekend Beach Trip"
-                required
-                autoFocus
-              />
-            </div>
-
-            {/* Description */}
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add any notes or details about this packing list..."
-                rows={3}
-              />
-            </div>
+            ) : null}
+            <div className="grid gap-2"><Label htmlFor="create-name">List name</Label><Input id="create-name" value={name} onChange={(event) => setName(event.target.value)} required autoFocus /></div>
+            <div className="grid gap-2"><Label htmlFor="create-description">Description</Label><Textarea id="create-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></div>
+            {error ? (
+              <div role="alert" className="text-sm text-destructive">
+                <p className="font-semibold">{error.title}</p>
+                <p>{error.message}</p>
+              </div>
+            ) : null}
+            {!online ? (
+              <p
+                id="create-list-dialog-offline-reason"
+                role="status"
+                aria-live="polite"
+                className="text-sm text-warning"
+              >
+                Reconnect to create this list.
+              </p>
+            ) : null}
           </div>
-
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isCreating || !name.trim()}>
-              {isCreating ? "Creating..." : "Create List"}
+            <Button
+              type="submit"
+              disabled={pending || !online || !name.trim() || templateUnavailable}
+              aria-busy={pending || selectedTemplateLoading}
+              aria-describedby={!online ? "create-list-dialog-offline-reason" : undefined}
+            >
+              {selectedTemplateLoading
+                ? "Loading template…"
+                : pending
+                  ? "Creating…"
+                  : "Create list"}
             </Button>
           </DialogFooter>
         </form>

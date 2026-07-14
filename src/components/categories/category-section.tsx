@@ -1,44 +1,35 @@
-"use client"
-
+import type { Id } from "../../../convex/_generated/dataModel";
 import { useState } from "react";
-import { Category, Item } from "@/types";
-import { useConvexStore } from "@/hooks/use-convex-store";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ProgressBar } from "../progress/progress-bar";
-import { getItemsStats, areEssentialsPacked } from "@/lib/progress-utils";
-import { ItemForm } from "../items/item-form";
-import { SortableItem } from "../dnd/sortable-item";
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
+  closestCenter,
+  type DragEndEvent,
   useSensor,
   useSensors,
-  DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
+  arrayMove,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
+  Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Edit2,
-  Trash2,
-  Check,
-  X,
-  Package,
-  CheckCircle2,
   GripVertical,
-  AlertCircle,
+  Package,
+  Trash2,
+  X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+import { SortableItem } from "@/components/dnd/sortable-item";
+import { ItemForm } from "@/components/items/item-form";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,265 +40,327 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { useListActions } from "@/features/lists/hooks/use-list-actions";
+import {
+  getAddItemInput,
+  getUpdateItemAndMoveInput,
+} from "@/features/lists/item-mutation-model";
+import type { CategoryDocument, ItemFormValue } from "@/features/lists/types";
+import { mapError, type UserFacingError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
 interface CategorySectionProps {
-  listId: string;
-  category: Category;
-  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+  listId: Id<"lists">;
+  category: CategoryDocument;
+  categories: CategoryDocument[];
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   isDragging?: boolean;
+  offlineReasonId?: string;
+  online?: boolean;
 }
 
-export function CategorySection({ 
-  listId, 
-  category, 
+export function CategorySection({
+  categories,
+  category,
   dragHandleProps,
-  isDragging 
+  isDragging,
+  offlineReasonId,
+  online = true,
 }: CategorySectionProps) {
-  const {
-    addItem,
-    updateItem,
-    deleteItem,
-    toggleItemPacked,
-    reorderItems,
-    updateCategory,
-    deleteCategory,
-    toggleCategoryCollapse,
-  } = useConvexStore();
-  
-  const [isEditingName, setIsEditingName] = useState(false);
+  const actions = useListActions();
+  const [editingName, setEditingName] = useState(false);
   const [editedName, setEditedName] = useState(category.name);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
+  const [deleting, setDeleting] = useState(false);
+  const [categoryError, setCategoryError] = useState<UserFacingError | null>(null);
+  const [deleteError, setDeleteError] = useState<UserFacingError | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  const packed = category.items.filter((item) => item.packed).length;
+  const progress = category.items.length
+    ? Math.round((packed / category.items.length) * 100)
+    : 0;
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (active.id !== over?.id) {
-      const oldIndex = category.items.findIndex((item) => (item._id || item.id) === active.id);
-      const newIndex = category.items.findIndex((item) => (item._id || item.id) === over?.id);
-      
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(category.items, oldIndex, newIndex);
-        reorderItems(listId, category.id, newOrder.map(item => item._id || item.id));
-      }
+  const runCategoryAction = async (
+    action: () => void | Promise<unknown>,
+  ) => {
+    if (!online) return false;
+    setCategoryError(null);
+    try {
+      await action();
+      return true;
+    } catch (error) {
+      setCategoryError(mapError(error));
+      return false;
     }
   };
 
-  const handleNameSave = () => {
-    if (editedName.trim() && editedName !== category.name) {
-      updateCategory(listId, category.id, { name: editedName.trim() });
-      toast.success("Category name updated");
-    } else {
-      setEditedName(category.name);
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (!online || !over || active.id === over.id) return;
+    const oldIndex = category.items.findIndex((item) => item._id === active.id);
+    const newIndex = category.items.findIndex((item) => item._id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(category.items, oldIndex, newIndex);
+    await runCategoryAction(() =>
+      actions.reorderItems(
+        {
+          categoryId: category._id,
+          itemIds: reordered.map((item) => item._id),
+        },
+        { rethrow: true },
+      ),
+    );
+  };
+
+  const saveName = async () => {
+    if (!online) return;
+    const name = editedName.trim();
+    if (name && name !== category.name) {
+      const saved = await runCategoryAction(() =>
+        actions.updateCategory(
+          { categoryId: category._id, name },
+          { rethrow: true },
+        ),
+      );
+      if (!saved) return;
+      toast.success("Category renamed");
     }
-    setIsEditingName(false);
+    setEditingName(false);
   };
 
-  const handleNameCancel = () => {
-    setEditedName(category.name);
-    setIsEditingName(false);
+  const addItem = async (item: ItemFormValue) => {
+    const itemId = await actions.addItem(getAddItemInput(category._id, item), {
+      rethrow: true,
+    });
+    if (!itemId) throw new Error("Item creation did not return an ID");
+    toast.success("Item added");
   };
 
-  const handleAddItem = (itemData: Omit<Item, "id" | "categoryId" | "createdAt" | "updatedAt">) => {
-    // Use the Convex _id field for the mutation
-    const categoryId = category._id || category.id;
-    addItem(categoryId, itemData.name, itemData.quantity, itemData.priority, itemData.notes);
-    toast.success("Item added successfully");
+  const handleDelete = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    if (!online) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await actions.deleteCategory(
+        { categoryId: category._id },
+        { rethrow: true },
+      );
+      setShowDeleteDialog(false);
+    } catch (error) {
+      setDeleteError(mapError(error));
+    } finally {
+      setDeleting(false);
+    }
   };
-
-  const handleUpdateItem = (itemId: string, updates: Partial<Item>) => {
-    updateItem(listId, category.id, itemId, updates);
-  };
-
-  const handleDeleteItem = (itemId: string) => {
-    deleteItem(listId, category.id, itemId);
-    toast.success("Item deleted");
-  };
-
-  const handleToggleItemPacked = (itemId: string) => {
-    toggleItemPacked(itemId);
-  };
-
-  const handleDeleteCategory = () => {
-    deleteCategory(listId, category.id);
-    toast.success("Category deleted");
-  };
-
-  // Calculate category statistics
-  const stats = getItemsStats(category.items);
-  const essentialsPacked = areEssentialsPacked(category.items);
 
   return (
     <>
-      <Card className={cn("transition-all", isDragging && "opacity-50 shadow-lg")}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-1">
-              {/* Drag Handle for Category */}
-              <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
+      <Card
+        className={cn(
+          "overflow-hidden border-l-4",
+          isDragging && "opacity-70 shadow-[var(--shadow-dialog)]",
+        )}
+        style={{ borderLeftColor: category.color ?? "var(--accent)" }}
+      >
+        <CardHeader className="px-3 pb-3">
+          <div
+            data-category-header
+            className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <div
+                {...(online ? dragHandleProps : {})}
+                aria-label={`Drag ${category.name} category`}
+                aria-disabled={!online}
+                aria-describedby={!online ? offlineReasonId : undefined}
+                className={cn(
+                  "flex size-11 shrink-0 items-center justify-center",
+                  online ? "cursor-grab" : "cursor-not-allowed opacity-50",
+                )}
+              >
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
               </div>
-              
-              {/* Collapse Toggle - Touch optimized */}
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-8 w-8 md:h-6 md:w-6 p-0"
-                onClick={() => toggleCategoryCollapse(listId, category.id)}
+                size="icon"
+                disabled={!online}
+                aria-describedby={!online ? offlineReasonId : undefined}
+                onClick={() =>
+                  void runCategoryAction(() =>
+                    actions.toggleCategoryCollapse(
+                      { categoryId: category._id },
+                      { rethrow: true },
+                    ),
+                  )
+                }
               >
                 {category.collapsed ? (
                   <ChevronRight className="h-4 w-4" />
                 ) : (
                   <ChevronDown className="h-4 w-4" />
                 )}
+                <span className="sr-only">Toggle category</span>
               </Button>
-
-              {/* Category Name with Inline Editing */}
-              {isEditingName ? (
-                <div className="flex items-center gap-1 flex-1">
+              {editingName ? (
+                <div className="flex flex-1 items-center gap-1">
                   <Input
                     value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleNameSave();
-                      if (e.key === "Escape") handleNameCancel();
+                    onChange={(event) => setEditedName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") void saveName();
+                      if (event.key === "Escape") setEditingName(false);
                     }}
-                    className="h-7"
                     autoFocus
                   />
                   <Button
-                    size="icon"
                     variant="ghost"
-                    className="h-8 w-8 md:h-6 md:w-6"
-                    onClick={handleNameSave}
+                    size="icon"
+                    aria-label={`Save category name for ${category.name}`}
+                    aria-describedby={!online ? offlineReasonId : undefined}
+                    disabled={!online}
+                    onClick={() => void saveName()}
                   >
                     <Check className="h-3 w-3" />
                   </Button>
                   <Button
-                    size="icon"
                     variant="ghost"
-                    className="h-8 w-8 md:h-6 md:w-6"
-                    onClick={handleNameCancel}
+                    size="icon"
+                    aria-label={`Cancel renaming ${category.name}`}
+                    onClick={() => setEditingName(false)}
                   >
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
               ) : (
-                <h3 
-                  className="font-semibold cursor-pointer hover:underline"
-                  onClick={() => setIsEditingName(true)}
+                <button
+                  type="button"
+                  className="font-semibold hover:underline"
+                  onClick={() => setEditingName(true)}
                 >
                   {category.name}
-                </h3>
+                </button>
               )}
-
-              {/* Category Stats */}
-              <Badge variant="secondary" className="ml-2">
-                {stats.total} {stats.total === 1 ? "item" : "items"}
+              <Badge variant="outline" className="font-mono tabular-nums">
+                {category.items.length} items
               </Badge>
-              
-              {stats.progress > 0 && (
-                <Badge variant="outline" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  {stats.progress}%
+              {progress ? (
+                <Badge variant="outline">
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                  {progress}%
                 </Badge>
-              )}
-              
-              {!essentialsPacked && stats.byPriority.essential > 0 && (
-                <Badge variant="destructive" className="gap-1 text-xs">
-                  <AlertCircle className="h-3 w-3" />
-                  {stats.byPriority.essential - stats.packedByPriority.essential} essential
-                </Badge>
-              )}
+              ) : null}
             </div>
-
-            {/* Category Actions */}
-            <div className="flex items-center gap-1">
+            <div
+              data-category-actions
+              className="flex flex-wrap gap-1 self-end sm:self-auto"
+            >
               <ItemForm
-                categoryId={category.id}
-                onSubmit={handleAddItem}
+                categoryId={category._id}
+                onSubmit={addItem}
+                online={online}
               />
-              
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
-                onClick={() => setIsEditingName(true)}
+                onClick={() => setEditingName(true)}
               >
                 <Edit2 className="h-4 w-4" />
+                <span className="sr-only">Rename category</span>
               </Button>
-              
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
+                className="text-destructive"
                 onClick={() => setShowDeleteDialog(true)}
               >
                 <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Delete category</span>
               </Button>
             </div>
           </div>
-
-          {/* Progress Bar */}
-          {!category.collapsed && stats.total > 0 && (
-            <div className="mt-3">
-              <ProgressBar 
-                value={stats.progress} 
-                size="sm"
-                showPercentage={false}
-                animated
-                className="space-y-1"
+          {!category.collapsed && category.items.length ? (
+            <div className="mt-3 space-y-1">
+              <Progress
+                value={progress}
+                aria-label={`${category.name} packing progress`}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats.packed} of {stats.total} items packed
+              <p className="text-xs text-muted-foreground">
+                {packed} of {category.items.length} packed
               </p>
             </div>
-          )}
+          ) : null}
+          {categoryError ? (
+            <div role="alert" className="mt-3 text-sm text-destructive">
+              <p className="font-semibold">{categoryError.title}</p>
+              <p>{categoryError.message}</p>
+            </div>
+          ) : null}
         </CardHeader>
-
-        {!category.collapsed && (
-          <CardContent className="pt-0">
+        {!category.collapsed ? (
+          <CardContent className="px-3">
             {category.items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Package className="h-12 w-12 text-muted-foreground mb-3" />
-                <p className="text-muted-foreground text-sm">
-                  No items in this category yet.
-                </p>
+              <div className="flex flex-col items-center py-8">
+                <Package className="mb-3 h-12 w-12 text-muted-foreground" />
+                <p className="mb-3 text-sm text-muted-foreground">No items yet.</p>
                 <ItemForm
-                  categoryId={category.id}
-                  onSubmit={handleAddItem}
-                  trigger={
-                    <Button size="sm" className="mt-3">
-                      Add First Item
-                    </Button>
-                  }
+                  categoryId={category._id}
+                  onSubmit={addItem}
+                  online={online}
+                  trigger={<Button size="sm">Add first item</Button>}
                 />
               </div>
             ) : (
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
+                onDragEnd={(event) => void handleDragEnd(event)}
               >
                 <SortableContext
-                  items={category.items.map(item => item._id || item.id)}
+                  items={category.items.map((item) => item._id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-2">
+                  <div className="divide-y divide-border border-y border-border">
                     {category.items.map((item) => (
                       <SortableItem
-                        key={item._id || item.id}
+                        key={item._id}
                         item={item}
-                        onTogglePacked={handleToggleItemPacked}
-                        onUpdate={handleUpdateItem}
-                        onDelete={handleDeleteItem}
+                        availableCategories={categories}
+                        online={online}
+                        offlineReasonId={offlineReasonId}
+                        onTogglePacked={(itemId) =>
+                          actions.toggleItemPacked(
+                            { itemId },
+                            { rethrow: true },
+                          )
+                        }
+                        onUpdate={(itemId, updates, targetCategoryId) =>
+                          actions.updateItemAndMove(
+                            getUpdateItemAndMoveInput(
+                              itemId,
+                              updates,
+                              targetCategoryId ?? category._id,
+                              categories,
+                            ),
+                            { rethrow: true },
+                          )
+                        }
+                        onAdjustQuantity={(itemId, delta) =>
+                          actions.adjustItemQuantity(
+                            { itemId, delta },
+                            { rethrow: true },
+                          )
+                        }
+                        onDelete={(itemId) =>
+                          actions.deleteItem({ itemId }, { rethrow: true })
+                        }
                       />
                     ))}
                   </div>
@@ -315,25 +368,50 @@ export function CategorySection({
               </DndContext>
             )}
           </CardContent>
-        )}
+        ) : null}
       </Card>
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={(nextOpen) => {
+          setShowDeleteDialog(nextOpen);
+          if (!nextOpen) setDeleteError(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogTitle>Delete category</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &ldquo;{category.name}&rdquo; and all its items? 
-              This action cannot be undone.
+              Delete “{category.name}” and all its items? This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteCategory}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          {deleteError ? (
+            <div role="alert" className="text-sm text-destructive">
+              <p className="font-semibold">{deleteError.title}</p>
+              <p>{deleteError.message}</p>
+            </div>
+          ) : null}
+          {!online ? (
+            <p
+              id="category-delete-offline-reason"
+              role="status"
+              aria-live="polite"
+              className="text-sm text-warning"
             >
-              Delete Category
+              Reconnect to delete this category.
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground"
+              disabled={!online || deleting}
+              aria-describedby={
+                !online ? "category-delete-offline-reason" : undefined
+              }
+              aria-busy={deleting}
+              onClick={(event) => void handleDelete(event)}
+            >
+              {deleting ? "Deleting…" : "Delete category"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
