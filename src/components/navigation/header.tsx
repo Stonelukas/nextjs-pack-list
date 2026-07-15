@@ -1,14 +1,22 @@
-"use client";
+import { UserButton } from "@clerk/clerk-react";
+import {
+  Home,
+  LayoutTemplate,
+  List,
+  LogIn,
+  Menu,
+  PanelLeft,
+  PanelLeftClose,
+  Plus,
+  Route,
+  Settings,
+  Shield,
+} from "lucide-react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 
-import { useEffect } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useUser, UserButton } from "@clerk/nextjs";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { useAuthReadiness } from "@/app/auth/auth-readiness";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { useNavigationStore } from "@/store/navigation-store";
-import { useRoleBasedActions, useFilteredNavigation, useRoleBasedAccess } from "@/hooks/use-role-based-navigation";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -16,288 +24,281 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { clerkAppearance } from "@/features/auth/clerk-appearance";
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
-import {
-  Menu,
-  Package,
-  Plus,
-  List,
-  LayoutTemplate,
-  Settings,
-  Home,
-  ChevronRight,
-  Sparkles,
-  LogIn,
-  PanelLeftClose,
-  PanelLeft,
-  Shield,
-} from "lucide-react";
+  useRoleBasedAccess,
+  type Permission,
+} from "@/hooks/use-role-based-navigation";
+import { cn } from "@/lib/utils";
+import { useNavigationStore } from "@/store/navigation-store";
 
-export function Header() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { isSignedIn, user } = useUser();
+interface NavItem {
+  title: string;
+  href: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission?: Permission;
+}
+
+interface HeaderFrameProps {
+  accountControl: React.ReactNode;
+  desktopItems?: NavItem[];
+  mobileItems: NavItem[];
+  newListControl?: React.ReactNode;
+  signedIn?: boolean;
+}
+
+const publicItems: NavItem[] = [
+  {
+    title: "Home",
+    href: "/",
+    description: "A calmer packing workspace",
+    icon: Home,
+  },
+  {
+    title: "Templates",
+    href: "/templates",
+    description: "Useful starting points",
+    icon: LayoutTemplate,
+  },
+];
+
+const signedInItems: NavItem[] = [
+  {
+    title: "Overview",
+    href: "/",
+    description: "Your packing workspace",
+    icon: Home,
+  },
+  {
+    title: "Lists",
+    href: "/lists",
+    description: "Your trip lists",
+    icon: List,
+    permission: "view_lists",
+  },
+  {
+    title: "Templates",
+    href: "/templates",
+    description: "Useful starting points",
+    icon: LayoutTemplate,
+    permission: "view_templates",
+  },
+];
+
+function HeaderFrame({
+  accountControl,
+  desktopItems,
+  mobileItems,
+  newListControl,
+  signedIn = false,
+}: HeaderFrameProps) {
   const {
     mobileMenuOpen,
     setMobileMenuOpen,
-    addToHistory,
+    sidebarOpen,
     toggleSidebar,
-    sidebarOpen
   } = useNavigationStore();
-  const { canAccessSettings } = useRoleBasedActions();
-  const { userRole } = useRoleBasedAccess();
-  
-  // Track navigation history
-  useEffect(() => {
-    addToHistory(pathname);
-  }, [pathname, addToHistory]);
-
-  const isActive = (path: string) => {
-    if (path === "/" && pathname === "/") return true;
-    if (path !== "/" && pathname.startsWith(path)) return true;
-    return false;
-  };
-
-  const navItems = [
-    {
-      title: "Dashboard",
-      href: "/",
-      icon: Home,
-      description: "Overview of your packing lists",
-    },
-    {
-      title: "Lists",
-      href: "/lists",
-      icon: List,
-      description: "Manage your packing lists",
-      requiredPermissions: ["view_lists"],
-    },
-    {
-      title: "Templates",
-      href: "/templates",
-      icon: LayoutTemplate,
-      description: "Browse and create templates",
-      requiredPermissions: ["view_templates"],
-    },
-    ...(userRole === "admin" ? [{
-      title: "Admin",
-      href: "/admin",
-      icon: Shield,
-      description: "Admin dashboard and management",
-    }] : []),
-  ];
-
-  const quickActionsBase = [
-    {
-      title: "New List",
-      href: "/lists/new",
-      icon: Plus,
-      variant: "default" as const,
-      requiredPermissions: ["create_lists"],
-    },
-    {
-      title: "Quick Start",
-      href: "/templates",
-      icon: Sparkles,
-      variant: "outline" as const,
-      requiredPermissions: ["view_templates"],
-    },
-  ];
-
-  // Apply role-based filtering
-  const filteredNavItems = useFilteredNavigation(navItems);
-  const quickActions = useFilteredNavigation(quickActionsBase);
-
-  const handleNavigation = (href: string) => {
-    router.push(href);
-    setMobileMenuOpen(false);
-  };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        {/* Logo and Brand */}
-        <div className="flex items-center gap-4">
-          {/* Desktop Sidebar Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="hidden lg:flex"
-          >
-            {sidebarOpen ? (
-              <PanelLeftClose className="h-5 w-5" />
-            ) : (
-              <PanelLeft className="h-5 w-5" />
-            )}
-            <span className="sr-only">Toggle sidebar</span>
-          </Button>
-          
-          {/* Mobile Menu Trigger */}
+    <header className="app-header sticky top-0 z-50 w-full border-b bg-surface/95 backdrop-blur">
+      <div className="app-frame flex h-16 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {signedIn ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:inline-flex"
+              onClick={toggleSidebar}
+              aria-label={
+                sidebarOpen ? "Close navigation rail" : "Open navigation rail"
+              }
+            >
+              {sidebarOpen ? <PanelLeftClose /> : <PanelLeft />}
+            </Button>
+          ) : null}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild className="lg:hidden">
-              <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                aria-label="Open navigation menu"
+              >
+                <Menu />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[300px]">
+            <SheetContent side="left" className="bg-card">
               <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Pack List
+                <SheetTitle className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+                  <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+                    <Route className="size-5" aria-hidden="true" />
+                  </span>
+                  Route Ledger
                 </SheetTitle>
               </SheetHeader>
-              <nav className="mt-6 space-y-2">
-                {filteredNavItems.map((item) => (
-                  <button
-                    key={item.href}
-                    onClick={() => handleNavigation(item.href)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-                      isActive(item.href) &&
-                        "bg-accent text-accent-foreground font-medium"
-                    )}
+              <nav className="mt-5 space-y-1 px-2" aria-label="Primary navigation">
+                {mobileItems.map(({ description, href, icon: Icon, title }) => (
+                  <NavLink
+                    key={href}
+                    to={href}
+                    end={href === "/"}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-foreground transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary ring-1 ring-inset ring-primary/15"
+                          : "hover:bg-muted",
+                      )
+                    }
                   >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
-                      <div className="text-left">
-                        <div>{item.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.description}
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                    <Icon className="size-5" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{title}</span>
+                      <span className="block text-sm text-muted-foreground">
+                        {description}
+                      </span>
+                    </span>
+                  </NavLink>
                 ))}
-
-                {/* Quick Actions in Mobile Menu */}
-                <div className="border-t pt-4 mt-4">
-                  <div className="text-xs font-semibold text-muted-foreground mb-2">
-                    Quick Actions
-                  </div>
-                  {quickActions.map((action) => (
-                    <button
-                      key={action.href}
-                      onClick={() => handleNavigation(action.href)}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <action.icon className="h-4 w-4" />
-                      {action.title}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Settings and Admin in Mobile Menu */}
-                {isSignedIn && (canAccessSettings || userRole === "admin") && (
-                  <div className="border-t pt-4 mt-4">
-                    {canAccessSettings && (
-                      <button
-                        onClick={() => handleNavigation("/settings")}
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                      >
-                        <Settings className="h-4 w-4" />
-                        Settings
-                      </button>
-                    )}
-                    {userRole === "admin" && (
-                      <button
-                        onClick={() => handleNavigation("/admin")}
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                      >
-                        <Shield className="h-4 w-4" />
-                        Admin Dashboard
-                      </button>
-                    )}
-                  </div>
-                )}
+                {signedIn ? (
+                  <NavLink
+                    to="/settings"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary ring-1 ring-inset ring-primary/15"
+                          : "hover:bg-muted",
+                      )
+                    }
+                  >
+                    <Settings className="size-5" aria-hidden="true" />
+                    Settings
+                  </NavLink>
+                ) : null}
               </nav>
             </SheetContent>
           </Sheet>
-
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <Package className="h-6 w-6" />
-            <span className="font-bold text-lg hidden sm:inline-block">
-              Pack List
+          <Link
+            to="/"
+            className="flex min-h-11 min-w-11 items-center gap-2 rounded-xl font-semibold tracking-tight text-foreground"
+            aria-label="Route Ledger home"
+          >
+            <span className="hidden size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15 sm:grid">
+              <Route className="size-5" aria-hidden="true" />
             </span>
+            <span className="whitespace-nowrap text-lg sm:text-xl">Route Ledger</span>
           </Link>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-2">
-          <NavigationMenu>
-            <NavigationMenuList>
-              {filteredNavItems.map((item) => (
-                <NavigationMenuItem key={item.href}>
-                  <NavigationMenuLink asChild>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50",
-                        isActive(item.href) && "bg-accent/50"
-                      )}
-                    >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {item.title}
-                    </Link>
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
-              ))}
-            </NavigationMenuList>
-          </NavigationMenu>
-        </nav>
-
-        {/* Right Side Actions */}
-        <div className="flex items-center gap-2">
-          {/* Quick Actions - Desktop Only */}
-          <div className="hidden md:flex items-center gap-2">
-            {quickActions.map((action) => (
-              <Button
-                key={action.href}
-                variant={action.variant}
-                size="sm"
-                onClick={() => router.push(action.href)}
+        {desktopItems ? (
+          <nav
+            className="hidden items-center gap-1 lg:flex"
+            aria-label="Primary navigation"
+          >
+            {desktopItems.map(({ href, title }) => (
+              <NavLink
+                key={href}
+                to={href}
+                end={href === "/"}
+                className={({ isActive }) =>
+                  cn(
+                    "flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary ring-1 ring-inset ring-primary/15"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )
+                }
               >
-                <action.icon className="h-4 w-4 mr-1" />
-                {action.title}
-              </Button>
+                {title}
+              </NavLink>
             ))}
-          </div>
+          </nav>
+        ) : null}
 
-          {/* Theme Toggle */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {newListControl}
           <ThemeToggle />
-
-          {/* User Account */}
-          {isSignedIn ? (
-            <UserButton
-              afterSignOutUrl="/"
-              appearance={{
-                elements: {
-                  avatarBox: "h-8 w-8",
-                },
-              }}
-            />
-          ) : (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => router.push("/sign-in")}
-            >
-              <LogIn className="h-4 w-4 mr-1" />
-              Sign In
-            </Button>
-          )}
+          {accountControl}
         </div>
       </div>
     </header>
   );
+}
+
+function ReadySignedInHeader() {
+  const navigate = useNavigate();
+  const { hasPermission, isAdmin } = useRoleBasedAccess();
+  const items: NavItem[] = isAdmin
+    ? [
+        ...signedInItems,
+        {
+          title: "Admin",
+          href: "/admin",
+          description: "Manage people and access",
+          icon: Shield,
+        },
+      ]
+    : signedInItems;
+  const visibleItems = items.filter(
+    (item) => !item.permission || hasPermission(item.permission),
+  );
+
+  return (
+    <HeaderFrame
+      signedIn
+      mobileItems={visibleItems}
+      newListControl={
+        hasPermission("create_lists") ? (
+          <Button
+            className="hidden sm:inline-flex"
+            size="sm"
+            onClick={() => navigate("/lists/new")}
+          >
+            <Plus aria-hidden="true" /> New list
+          </Button>
+        ) : null
+      }
+      accountControl={
+        <div className="grid min-h-11 min-w-11 place-items-center [&_button]:min-h-11 [&_button]:min-w-11">
+          <UserButton appearance={clerkAppearance} afterSignOutUrl="/" />
+        </div>
+      }
+    />
+  );
+}
+
+function PublicHeader() {
+  return (
+    <HeaderFrame
+      desktopItems={publicItems}
+      mobileItems={publicItems}
+      accountControl={
+        <Button
+          asChild
+          size="icon"
+          className="px-0 sm:w-auto sm:px-3"
+          title="Sign in"
+        >
+          <Link to="/sign-in">
+            <LogIn aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only">Sign in</span>
+          </Link>
+        </Button>
+      }
+    />
+  );
+}
+
+export function Header() {
+  const auth = useAuthReadiness();
+
+  if (auth.status === "ready" && auth.isSignedIn) {
+    return <ReadySignedInHeader />;
+  }
+
+  return <PublicHeader />;
 }

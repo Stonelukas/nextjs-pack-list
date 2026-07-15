@@ -1,259 +1,58 @@
-"use client"
+import { CheckCircle2, CircleDashed, Target } from "lucide-react";
+import { useMemo } from "react";
 
-import { List, Category, Item, Priority } from "@/types";
-import { ProgressBar } from "./progress-bar";
-import { getItemsStats, getWeightStats, getPriorityColor } from "@/lib/progress-utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Package, 
-  CheckCircle2, 
-  AlertCircle, 
-  Star, 
-  Weight,
-  TrendingUp,
-  Clock,
-  Target
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState, useMemo, useCallback } from "react";
-import confetti from "canvas-confetti";
+import { ProgressBar } from "@/components/progress/progress-bar";
+import type { ListDocument } from "@/features/lists/types";
 import { cn } from "@/lib/utils";
-import { throttle } from "@/lib/performance";
 
 interface ListProgressProps {
-  list: List;
+  list: ListDocument;
   className?: string;
 }
 
-export function ListProgress({ list, className }: ListProgressProps) {
-  const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
-  
-  // Memoize item collection and stats calculation for performance
-  const allItems: Item[] = useMemo(() => 
-    list.categories.flatMap(cat => cat.items),
-    [list.categories]
-  );
-  
-  const stats = useMemo(() => getItemsStats(allItems), [allItems]);
-  const weightStats = useMemo(() => getWeightStats(allItems), [allItems]);
-  
-  // Throttle confetti trigger to prevent excessive animations
-  const triggerConfetti = useCallback(
-    throttle(() => {
-      // Fire confetti from multiple angles
-      const count = 200;
-      const defaults = {
-        origin: { y: 0.7 },
-        zIndex: 9999,
-      };
+const priorities = ["essential", "high", "medium", "low"] as const;
 
-      function fire(particleRatio: number, opts: Record<string, unknown>) {
-        confetti({
-          ...defaults,
-          ...opts,
-          particleCount: Math.floor(count * particleRatio),
-        });
-      }
-
-      fire(0.25, {
-        spread: 26,
-        startVelocity: 55,
-      });
-      fire(0.2, {
-        spread: 60,
-      });
-      fire(0.35, {
-        spread: 100,
-        decay: 0.91,
-        scalar: 0.8,
-      });
-      fire(0.1, {
-        spread: 120,
-        startVelocity: 25,
-        decay: 0.92,
-        scalar: 1.2,
-      });
-      fire(0.1, {
-        spread: 120,
-        startVelocity: 45,
-      });
-    }, 1000),
-    []
-  );
-  
-  // Trigger confetti on 100% completion
-  useEffect(() => {
-    if (stats.progress === 100 && !hasTriggeredConfetti && allItems.length > 0) {
-      setHasTriggeredConfetti(true);
-      triggerConfetti();
-    }
-    
-    // Reset confetti trigger if progress drops below 100%
-    if (stats.progress < 100) {
-      setHasTriggeredConfetti(false);
-    }
-  }, [stats.progress, hasTriggeredConfetti, allItems.length, triggerConfetti]);
-
-  const getPriorityLabel = useCallback((priority: Priority) => {
-    switch (priority) {
-      case Priority.ESSENTIAL:
-        return "Essential";
-      case Priority.HIGH:
-        return "High";
-      case Priority.MEDIUM:
-        return "Medium";
-      case Priority.LOW:
-        return "Low";
-    }
-  }, []);
+export function ListProgress({ className, list }: ListProgressProps) {
+  const items = useMemo(() => list.categories.flatMap((category) => category.items), [list.categories]);
+  const packed = items.filter((item) => item.packed).length;
+  const progress = items.length ? Math.round((packed / items.length) * 100) : 0;
 
   return (
-    <div className={className}>
-      {/* Main Progress Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Overall Progress
-            </CardTitle>
-            {stats.progress === 100 && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200 }}
-              >
-                <Badge variant="default" className="gap-1 bg-green-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                  List Complete!
-                </Badge>
-              </motion.div>
-            )}
+    <section className={cn("grid gap-5 rounded-lg border border-border bg-card p-5 lg:grid-cols-[minmax(0,1fr)_22rem]", className)} aria-labelledby="overall-progress-title">
+      <div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[0.68rem] uppercase tracking-[0.1em] text-muted-foreground">Key progress state</p>
+            <h2 id="overall-progress-title" className="mt-1 text-xl font-semibold">Overall progress</h2>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Main Progress Bar */}
-          <ProgressBar
-            value={stats.progress}
-            showEmoji
-            size="lg"
-            animated
-          />
-          
-          {/* Statistics Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Total Items</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Packed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.packed}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Remaining</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.remaining}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Categories</p>
-              <p className="text-2xl font-bold">{list.categories.length}</p>
-            </div>
-          </div>
-
-          {/* Priority Breakdown */}
-          {stats.total > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium flex items-center gap-2">
-                <Star className="h-4 w-4" />
-                Priority Breakdown
-              </h4>
-              <div className="space-y-2">
-                {Object.entries(stats.byPriority).map(([priority, count]) => {
-                  if (count === 0) return null;
-                  const packed = stats.packedByPriority[priority as Priority];
-                  const percentage = count > 0 ? Math.round((packed / count) * 100) : 0;
-                  
-                  return (
-                    <div key={priority} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className={cn("font-medium", getPriorityColor(priority as Priority))}>
-                          {getPriorityLabel(priority as Priority)}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {packed}/{count} items
-                        </span>
-                      </div>
-                      <ProgressBar
-                        value={percentage}
-                        showPercentage={false}
-                        size="sm"
-                        animated={false}
-                      />
-                    </div>
-                  );
-                })}
+          <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold", progress === 100 ? "border-success/40 text-success" : "border-border text-muted-foreground")}>
+            {progress === 100 ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : <CircleDashed className="h-4 w-4" aria-hidden="true" />}
+            {progress === 100 ? "Cleared" : "In progress"}
+          </span>
+        </div>
+        <ProgressBar value={progress} label="Packed against target" size="lg" className="mt-5" />
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <Target className="h-4 w-4" aria-hidden="true" />
+          {progress === 0 ? "Ready to start packing." : progress === 100 ? "All items are packed and the manifest is clear." : `${items.length - packed} items remain before departure.`}
+        </p>
+      </div>
+      <div className="border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5">
+        <h3 className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Priority order</h3>
+        <div className="mt-3 space-y-2">
+          {priorities.map((priority) => {
+            const priorityItems = items.filter((item) => item.priority === priority);
+            if (!priorityItems.length) return null;
+            const priorityPacked = priorityItems.filter((item) => item.packed).length;
+            return (
+              <div key={priority} className="grid grid-cols-[1fr_auto] items-center border-b border-border py-2 text-sm last:border-b-0">
+                <span className="capitalize">{priority}</span>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">{priorityPacked} / {priorityItems.length}</span>
               </div>
-            </div>
-          )}
-
-          {/* Weight Statistics */}
-          {weightStats.hasWeightData && (
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2">
-                <Weight className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Total Weight</span>
-              </div>
-              <div className="text-sm">
-                <span className="font-bold">{weightStats.packed.toFixed(1)}kg</span>
-                <span className="text-muted-foreground"> / {weightStats.total.toFixed(1)}kg</span>
-              </div>
-            </div>
-          )}
-
-          {/* Completion Status Messages */}
-          <AnimatePresence mode="wait">
-            {stats.progress === 0 && (
-              <motion.div
-                key="not-started"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="flex items-center gap-2 p-3 rounded-lg bg-muted/50"
-              >
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Ready to start packing!</span>
-              </motion.div>
-            )}
-            
-            {stats.progress > 0 && stats.progress < 100 && (
-              <motion.div
-                key="in-progress"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 dark:bg-blue-500/20"
-              >
-                <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm">Keep going! You&apos;re {stats.progress}% complete.</span>
-              </motion.div>
-            )}
-            
-            {stats.progress === 100 && (
-              <motion.div
-                key="complete"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 dark:bg-green-500/20"
-              >
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium">All packed and ready to go! 🎉</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </CardContent>
-      </Card>
-    </div>
+            );
+          })}
+          {!items.length ? <p className="text-sm text-muted-foreground">No priority data yet.</p> : null}
+        </div>
+      </div>
+    </section>
   );
 }

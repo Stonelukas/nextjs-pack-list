@@ -1,4 +1,3 @@
-"use client"
 
 import { Item } from "@/types";
 import {
@@ -44,7 +43,7 @@ export function DuplicateWarning({
       <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
+            <AlertTriangle className="h-5 w-5 text-warning" />
             <DialogTitle>Potential Duplicate Detected</DialogTitle>
           </div>
           <DialogDescription>

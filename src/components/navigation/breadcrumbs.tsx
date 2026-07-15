@@ -1,14 +1,12 @@
-"use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Fragment } from "react";
 import { useBreadcrumbs } from "@/hooks/navigation";
 
 export function Breadcrumbs() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const breadcrumbs = useBreadcrumbs();
 
   // Don't show breadcrumbs on home page
@@ -28,7 +26,7 @@ export function Breadcrumbs() {
           )}
           {!breadcrumb.isActive ? (
             <Link
-              href={breadcrumb.href}
+              to={breadcrumb.href}
               className={cn(
                 "hover:text-foreground transition-colors",
                 index === 0 && "flex items-center gap-1"

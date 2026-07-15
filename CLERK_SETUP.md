@@ -1,140 +1,135 @@
-# Clerk Authentication Setup Guide
+# Clerk React and Convex Setup
 
-## Overview
-Clerk authentication has been integrated into the Pack List application following the official App Router approach.
+## Runtime integration
 
-## Setup Steps
+Route Ledger uses `@clerk/clerk-react`, not a framework-specific Clerk SDK.
 
-### 1. Create Clerk Account
-1. Go to [https://clerk.com](https://clerk.com)
-2. Sign up for a free account
-3. Create a new application
+Provider composition in `src/app/providers.tsx` is:
 
-### 2. Get Your API Keys
-1. In the Clerk Dashboard, go to **API Keys**
-2. Copy your keys:
-   - **Publishable Key**: Starts with `pk_test_` or `pk_live_`
-   - **Secret Key**: Starts with `sk_test_` or `sk_live_`
+```text
+RootErrorBoundary
+  -> ThemeProvider
+    -> RuntimeConfigurationProvider
+      -> configured: ClerkProvider
+        -> ConvexProviderWithClerk
+          -> AuthReadinessProvider
+            -> ConvexUserBootstrap
+              -> PreferenceThemeSync
+              -> RouterProvider
+      -> unconfigured: UnavailableAuthReadinessProvider
+        -> RouterProvider
+```
 
-### 3. Configure Environment Variables
-Create a `.env.local` file in the project root with your Clerk keys:
+`src/providers/convex-provider.tsx` passes Clerk's `useAuth` to `ConvexProviderWithClerk` only after public runtime configuration is valid. The browser transports the Clerk session to Convex; it does not send a Clerk ID or role as an authorization argument. Unconfigured startup constructs neither external provider and keeps public routing available.
+
+## Browser configuration
+
+Set these public Vite values in `.env.local` and in Vercel Preview/Production:
+
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_or_live_value
+VITE_CONVEX_URL=https://your-deployment.convex.cloud
+```
+
+Optional public values:
+
+```env
+VITE_APP_URL=http://localhost:5173
+VITE_SENTRY_DSN=
+```
+
+Convex CLI may additionally write `VITE_CONVEX_SITE_URL=https://<deployment>.convex.site` to `.env.local`. Keep it: the build validates this public HTTP-actions metadata, and it supplies the Clerk webhook origin, but Route Ledger does not read it as browser runtime configuration and Vercel does not require it.
+
+Do not add `CLERK_SECRET_KEY`; the active browser and Convex webhook implementation do not consume it.
+
+## React Router authentication routes
+
+`src/app/routes.tsx` declares:
+
+- `/sign-in/*`
+- `/sign-up/*`
+
+The route modules under `src/features/auth/` render Clerk's `SignIn` and `SignUp` using path routing. The splat is required for nested verification, recovery, and factor steps such as `/sign-in/factor-two`.
+
+`RequireAuth` consumes bounded auth readiness, renders authentication-unavailable recovery when Clerk does not resolve, preserves pathname/search/hash for ready signed-out redirects, and withholds protected descendants until the state-only Convex user bootstrap is ready. Bootstrap failures expose **Retry account setup** after the 15-second authentication/provisioning bound. `RequireAdmin` waits for `api.users.getCurrentAccess` and mounts administrator content only for an explicit server-returned `admin` role. These guards improve startup recovery, navigation, and loading behavior; they are not the authorization boundary.
+
+## Convex JWT configuration
+
+1. Create or configure the Clerk JWT template used for Convex.
+2. Use application ID `convex`.
+3. Copy the exact HTTPS Clerk issuer into the Convex deployment environment:
+
+   ```env
+   CLERK_JWT_ISSUER_DOMAIN=https://your-exact-clerk-issuer.example
+   ```
+
+4. Confirm the value includes `https://`. `convex/auth.config.js` rejects missing, malformed, or non-HTTPS values.
+
+Convex resolves `identity.subject` through the `users.by_clerk_id` index. Missing roles behave as regular users; only `role: "admin"` passes `requireAdmin`.
+
+## Signed Clerk webhook
+
+Clerk user synchronization is hosted by Convex, not Vercel.
+
+1. Create the endpoint:
+
+   ```text
+   https://<deployment>.convex.site/clerk-webhook
+   ```
+
+2. Subscribe to:
+   - `user.created`
+   - `user.updated`
+   - `user.deleted`
+3. Store the signing secret in the Convex deployment environment:
+
+   ```env
+   CLERK_WEBHOOK_SECRET=whsec_...
+   ```
+
+`convex/http.ts` verifies `svix-id`, `svix-timestamp`, and `svix-signature` against the raw request body before dispatching to `internal.users.upsertFromClerk` or `internal.users.deleteFromClerk`. Only a verified `public_metadata.role` value of `admin` grants administrator access; all other values map to `user`.
+
+The Vercel origin does not host `/clerk-webhook` and must not receive the webhook secret.
+
+## Authorization rules
+
+- Browser callers never supply `clerkId`, `userId`, role, or email to select authorization context.
+- `requireCurrentUser` maps the authenticated Clerk subject to a Convex user.
+- `requireOwnedList`, `requireOwnedCategory`, and `requireOwnedItem` traverse normalized ownership.
+- Administration APIs call `requireAdmin`.
+- Batch reorder/move/import mutations validate the complete owned set before writing.
+- Stable `ConvexError.data.code` values drive user-facing error handling.
+
+## Local verification
 
 ```bash
-# Clerk Authentication Keys
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
-CLERK_SECRET_KEY=sk_test_your_key_here
-
-# Clerk URLs (optional - defaults work fine)
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
-
-# Convex Configuration (if using)
-NEXT_PUBLIC_CONVEX_URL=your_convex_url_here
-```
-
-### 4. Customize Authentication Pages (Optional)
-If you want custom sign-in/sign-up pages instead of modals:
-
-1. Create `app/sign-in/[[...sign-in]]/page.tsx`:
-```tsx
-import { SignIn } from "@clerk/nextjs";
-
-export default function Page() {
-  return <SignIn />;
-}
-```
-
-2. Create `app/sign-up/[[...sign-up]]/page.tsx`:
-```tsx
-import { SignUp } from "@clerk/nextjs";
-
-export default function Page() {
-  return <SignUp />;
-}
-```
-
-## Implementation Details
-
-### Files Modified/Created
-- **`src/middleware.ts`**: Created with `clerkMiddleware()` for authentication
-- **`src/app/layout.tsx`**: Wrapped with `ClerkProvider` and added auth UI components
-- **`src/contexts/auth-context.tsx`**: Updated to sync with Clerk user data
-- **`.env.example`**: Added Clerk environment variable templates
-
-### Key Components
-- **ClerkProvider**: Wraps the entire application to provide auth context
-- **SignInButton/SignUpButton**: Authentication triggers (currently using modals)
-- **UserButton**: User menu with sign out option
-- **SignedIn/SignedOut**: Conditional rendering based on auth state
-
-### Middleware Configuration
-The middleware protects routes and handles authentication:
-- Skips static files and Next.js internals
-- Always runs for API routes
-- Can be customized to protect specific routes
-
-## Testing
-
-### Local Development
-```bash
-# Install dependencies
-bun install
-
-# Run development server
+bun install --frozen-lockfile
+bun run check
+bun run test:convex
 bun run dev
 ```
 
-### Production Build
-```bash
-# Build the application
-bun run build
-
-# Start production server
-bun run start
-```
-
-## Customization
-
-### Protected Routes
-To protect specific routes, update `src/middleware.ts`:
-
-```typescript
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-
-const isProtectedRoute = createRouteMatcher([
-  '/dashboard(.*)',
-  '/lists(.*)',
-]);
-
-export default clerkMiddleware((auth, req) => {
-  if (isProtectedRoute(req)) auth().protect();
-});
-```
-
-### Custom User Data
-To store additional user data, you can:
-1. Use Clerk's user metadata features
-2. Sync with your database (Convex) using webhooks
-3. Store preferences in localStorage (current approach)
+The deterministic Vitest and Playwright boundaries do not require personal Clerk accounts. Live sign-in, JWT, authenticated Convex queries, and webhook delivery still require real Clerk/Convex development configuration.
 
 ## Troubleshooting
 
-### Missing API Keys Error
-- Ensure `.env.local` exists with valid Clerk keys
-- Restart the development server after adding keys
+### Signed-in users appear unauthenticated
 
-### Build Errors
-- Check that all Clerk imports are from `@clerk/nextjs` or `@clerk/nextjs/server`
-- Verify middleware.ts is in the `src` directory
+- Confirm the JWT template/application ID is `convex`.
+- Confirm `CLERK_JWT_ISSUER_DOMAIN` is the exact HTTPS issuer in the target Convex deployment.
+- Confirm the browser uses the publishable key belonging to that Clerk application.
 
-### Authentication Not Working
-- Check browser console for errors
-- Verify Clerk application is active in dashboard
-- Ensure environment variables are loaded correctly
+### User exists in Clerk but not Convex
 
-## Resources
-- [Clerk Documentation](https://clerk.com/docs)
-- [Next.js App Router Guide](https://clerk.com/docs/quickstarts/nextjs)
-- [Clerk Dashboard](https://dashboard.clerk.com)
+- Check Clerk webhook delivery to the `.convex.site/clerk-webhook` URL.
+- Confirm all three user events are subscribed.
+- Confirm `CLERK_WEBHOOK_SECRET` is set in Convex.
+- Inspect Convex HTTP action logs for Svix verification or payload errors.
+
+### Administrator route is forbidden
+
+The trusted webhook must synchronize `public_metadata.role: "admin"`. Browser metadata, email checks, and client route guards cannot grant the role.
+
+### Code generation cannot run
+
+`bunx convex codegen` requires a configured `CONVEX_DEPLOYMENT`. Do not invent or commit deployment credentials.

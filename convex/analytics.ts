@@ -1,5 +1,47 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
+import { requireAdmin } from "./lib/auth";
+import { readTemplateStats } from "./lib/template_stats";
+
+const COMPARISON_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+
+type MetricChange =
+  | {
+      status: "available";
+      percentage: number;
+      formatted: string;
+    }
+  | {
+      status: "unavailable";
+      percentage: null;
+      formatted: "Unavailable";
+      reason: "zero_baseline" | "historical_data_unavailable";
+    };
+
+function comparableChange(current: number, prior: number): MetricChange {
+  if (prior === 0) {
+    return {
+      status: "unavailable",
+      percentage: null,
+      formatted: "Unavailable",
+      reason: "zero_baseline",
+    };
+  }
+
+  const percentage = ((current - prior) / prior) * 100;
+  return {
+    status: "available",
+    percentage,
+    formatted: `${percentage >= 0 ? "+" : ""}${percentage.toFixed(1)}%`,
+  };
+}
+
+const historicalDataUnavailable = (): MetricChange => ({
+  status: "unavailable",
+  percentage: null,
+  formatted: "Unavailable",
+  reason: "historical_data_unavailable",
+});
 
 // Get user growth analytics over time
 export const getUserGrowthAnalytics = query({
@@ -7,6 +49,7 @@ export const getUserGrowthAnalytics = query({
     days: v.optional(v.number()), // Number of days to look back (default: 30)
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { days = 30 } = args;
     const startDate = Date.now() - (days * 24 * 60 * 60 * 1000);
     
@@ -59,14 +102,17 @@ export const getListAnalytics = query({
     days: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { days = 30 } = args;
     const startDate = Date.now() - (days * 24 * 60 * 60 * 1000);
     
-    const lists = await ctx.db.query("lists").collect();
-    
-    // Separate templates from regular lists
-    const regularLists = lists.filter(list => !list.isTemplate);
-    const templates = lists.filter(list => list.isTemplate);
+    const [regularLists, templateStats] = await Promise.all([
+      ctx.db
+        .query("lists")
+        .withIndex("by_template", (q) => q.eq("isTemplate", false))
+        .collect(),
+      readTemplateStats(ctx),
+    ]);
     
     // Group by date
     const listsByDate = new Map<string, { created: number; completed: number }>();
@@ -121,7 +167,7 @@ export const getListAnalytics = query({
         totalLists: regularLists.length,
         completedLists: regularLists.filter(l => l.completedAt).length,
         activeLists: regularLists.filter(l => !l.completedAt).length,
-        totalTemplates: templates.length,
+        totalTemplates: templateStats.totalTemplates,
       },
     };
   },
@@ -131,13 +177,18 @@ export const getListAnalytics = query({
 export const getSystemUsageAnalytics = query({
   args: {},
   handler: async (ctx) => {
-    const users = await ctx.db.query("users").collect();
-    const lists = await ctx.db.query("lists").collect();
-    const categories = await ctx.db.query("categories").collect();
-    const items = await ctx.db.query("items").collect();
-    
-    const regularLists = lists.filter(l => !l.isTemplate);
-    const templates = lists.filter(l => l.isTemplate);
+    await requireAdmin(ctx);
+    const [users, regularLists, categories, items, templateStats] =
+      await Promise.all([
+        ctx.db.query("users").collect(),
+        ctx.db
+          .query("lists")
+          .withIndex("by_template", (q) => q.eq("isTemplate", false))
+          .collect(),
+        ctx.db.query("categories").collect(),
+        ctx.db.query("items").collect(),
+        readTemplateStats(ctx),
+      ]);
     
     // Calculate user activity levels
     const userActivity = users.map(user => {
@@ -161,21 +212,41 @@ export const getSystemUsageAnalytics = query({
       high: userActivity.filter(u => u.activityLevel === 'high').length,
     };
     
-    // Calculate completion rates
-    const completionRate = regularLists.length > 0 
-      ? (regularLists.filter(l => l.completedAt).length / regularLists.length) * 100 
+    // Calculate lifetime overview values.
+    const completionRate = regularLists.length > 0
+      ? (regularLists.filter(l => l.completedAt).length / regularLists.length) * 100
       : 0;
-    
-    // Calculate average items per list
-    const avgItemsPerList = regularLists.length > 0 
-      ? items.length / regularLists.length 
+
+    const avgItemsPerList = regularLists.length > 0
+      ? items.length / regularLists.length
       : 0;
-    
+
+    // Top-metric changes compare adjacent seven-day periods. The completion
+    // metric compares completion rates for the lists created in each period.
+    const now = Date.now();
+    const currentPeriodStart = now - COMPARISON_PERIOD_MS;
+    const priorPeriodStart = now - (2 * COMPARISON_PERIOD_MS);
+    const isCurrentPeriod = (timestamp?: number) =>
+      timestamp !== undefined && timestamp >= currentPeriodStart;
+    const isPriorPeriod = (timestamp?: number) =>
+      timestamp !== undefined && timestamp >= priorPeriodStart && timestamp < currentPeriodStart;
+    const currentLists = regularLists.filter((list) => isCurrentPeriod(list.createdAt));
+    const priorLists = regularLists.filter((list) => isPriorPeriod(list.createdAt));
+    const currentActiveUsers = new Set(currentLists.map((list) => list.userId)).size;
+    const priorActiveUsers = new Set(priorLists.map((list) => list.userId)).size;
+    const periodCompletionRate = (periodLists: typeof regularLists) =>
+      periodLists.length > 0
+        ? (periodLists.filter((list) => list.completedAt !== undefined).length / periodLists.length) * 100
+        : 0;
+    const currentCompletionRate = periodCompletionRate(currentLists);
+    const priorCompletionRate = periodCompletionRate(priorLists);
+    const totalTemplateUsage = templateStats.totalUsage;
+
     return {
       overview: {
         totalUsers: users.length,
         totalLists: regularLists.length,
-        totalTemplates: templates.length,
+        totalTemplates: templateStats.totalTemplates,
         totalCategories: categories.length,
         totalItems: items.length,
         completionRate: Math.round(completionRate * 100) / 100,
@@ -183,10 +254,26 @@ export const getSystemUsageAnalytics = query({
       },
       userActivity: activityDistribution,
       topMetrics: [
-        { name: 'Active Users', value: users.length - activityDistribution.inactive, change: '+12%' },
-        { name: 'Lists Created', value: regularLists.length, change: '+8%' },
-        { name: 'Completion Rate', value: `${Math.round(completionRate)}%`, change: '+5%' },
-        { name: 'Templates Used', value: templates.length, change: '+15%' },
+        {
+          name: "Active Users",
+          value: currentActiveUsers,
+          change: comparableChange(currentActiveUsers, priorActiveUsers),
+        },
+        {
+          name: "Lists Created",
+          value: currentLists.length,
+          change: comparableChange(currentLists.length, priorLists.length),
+        },
+        {
+          name: "Completion Rate",
+          value: `${Math.round(currentCompletionRate)}%`,
+          change: comparableChange(currentCompletionRate, priorCompletionRate),
+        },
+        {
+          name: "Templates Used",
+          value: totalTemplateUsage,
+          change: historicalDataUnavailable(),
+        },
       ],
     };
   },
@@ -196,29 +283,27 @@ export const getSystemUsageAnalytics = query({
 export const getTemplateAnalytics = query({
   args: {},
   handler: async (ctx) => {
-    const lists = await ctx.db.query("lists").collect();
-    const templates = lists.filter(l => l.isTemplate);
-    const regularLists = lists.filter(l => !l.isTemplate);
-    
-    // Count usage of each template
-    const templateUsage = templates.map(template => {
-      const usageCount = regularLists.filter(l => l.templateId === template._id).length;
-      return {
-        id: template._id,
-        name: template.name,
-        description: template.description || '',
-        usageCount,
-        createdAt: template.createdAt,
-      };
-    }).sort((a, b) => b.usageCount - a.usageCount);
-    
+    await requireAdmin(ctx);
+    const [templates, templateStats] = await Promise.all([
+      ctx.db.query("templates").withIndex("by_usage").order("desc").take(10),
+      readTemplateStats(ctx),
+    ]);
+    const popularTemplates = templates.map((template) => ({
+      id: template._id,
+      name: template.name,
+      description: template.description,
+      usageCount: template.usageCount ?? 0,
+      createdAt: template.createdAt,
+    }));
+
     return {
-      popularTemplates: templateUsage.slice(0, 10), // Top 10
-      totalTemplates: templates.length,
-      totalUsage: templateUsage.reduce((sum, t) => sum + t.usageCount, 0),
-      averageUsage: templateUsage.length > 0 
-        ? templateUsage.reduce((sum, t) => sum + t.usageCount, 0) / templateUsage.length 
-        : 0,
+      popularTemplates,
+      totalTemplates: templateStats.totalTemplates,
+      totalUsage: templateStats.totalUsage,
+      averageUsage:
+        templateStats.totalTemplates > 0
+          ? templateStats.totalUsage / templateStats.totalTemplates
+          : 0,
     };
   },
 });
@@ -227,15 +312,20 @@ export const getTemplateAnalytics = query({
 export const getDashboardMetrics = query({
   args: {},
   handler: async (ctx) => {
-    const users = await ctx.db.query("users").collect();
-    const lists = await ctx.db.query("lists").collect();
-    
+    await requireAdmin(ctx);
+    const [users, regularLists] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db
+        .query("lists")
+        .withIndex("by_template", (q) => q.eq("isTemplate", false))
+        .collect(),
+    ]);
+
     const now = Date.now();
     const dayAgo = now - (24 * 60 * 60 * 1000);
     const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
-    
-    const regularLists = lists.filter(l => !l.isTemplate);
-    
+    const twoWeeksAgo = now - (14 * 24 * 60 * 60 * 1000);
+
     // Recent activity
     const recentUsers = users.filter(u => u.createdAt && u.createdAt >= dayAgo).length;
     const recentLists = regularLists.filter(l => l.createdAt && l.createdAt >= dayAgo).length;
@@ -243,12 +333,18 @@ export const getDashboardMetrics = query({
     
     // Weekly activity
     const weeklyUsers = users.filter(u => u.createdAt && u.createdAt >= weekAgo).length;
+    const priorWeeklyUsers = users.filter(
+      (user) => user.createdAt && user.createdAt >= twoWeeksAgo && user.createdAt < weekAgo,
+    ).length;
     const weeklyLists = regularLists.filter(l => l.createdAt && l.createdAt >= weekAgo).length;
-    
+    const activeUsers = new Set(regularLists.map((list) => list.userId)).size;
+    const growth = comparableChange(weeklyUsers, priorWeeklyUsers);
+
     return {
       realTime: {
-        activeUsers: users.length,
-        onlineNow: Math.floor(Math.random() * 5) + 1, // Simulated
+        activeUsers,
+        // Kept at zero for backward compatibility until a real presence contract exists.
+        onlineNow: 0,
         listsToday: recentLists,
         completionsToday: recentCompletions,
       },
@@ -257,7 +353,9 @@ export const getDashboardMetrics = query({
         newUsersWeek: weeklyUsers,
         newListsToday: recentLists,
         newListsWeek: weeklyLists,
-        growthRate: weeklyUsers > 0 ? ((recentUsers / weeklyUsers) * 100).toFixed(1) : '0',
+        /** @deprecated Use `growth`; `"0.0"` is only an unavailable compatibility sentinel. */
+        growthRate: growth.status === "available" ? growth.percentage.toFixed(1) : "0.0",
+        growth,
       },
     };
   },

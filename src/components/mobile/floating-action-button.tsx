@@ -1,10 +1,10 @@
-"use client"
 
-import { ReactNode, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSpring, animated } from "@react-spring/web";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 interface FloatingActionButtonProps {
   children?: ReactNode;
@@ -26,11 +26,38 @@ export function FloatingActionButton({
   hideOnDesktop = true,
 }: FloatingActionButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  
+  const actionsId = useId();
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const reducedMotion = useReducedMotion();
+
   const animation = useSpring({
     transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
     config: { tension: 300, friction: 20 },
+    immediate: reducedMotion,
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    actionsRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  const closeQuickActions = () => {
+    setIsOpen(false);
+    triggerRef.current?.focus();
+  };
 
   const positionClasses = {
     "bottom-right": "bottom-20 right-4",
@@ -40,7 +67,8 @@ export function FloatingActionButton({
 
   const handleClick = () => {
     if (children) {
-      setIsOpen(!isOpen);
+      if (isOpen) closeQuickActions();
+      else setIsOpen(true);
     } else if (onClick) {
       onClick();
     }
@@ -58,14 +86,23 @@ export function FloatingActionButton({
         )}
       >
         <Button
+          ref={triggerRef}
           onClick={handleClick}
           size="icon"
           className={cn(
-            "h-14 w-14 rounded-full shadow-lg",
-            "hover:scale-110 transition-transform",
-            "min-h-[44px] min-w-[44px]" // Ensure touch target size
+            "h-14 w-14 rounded-full border border-primary",
+            !reducedMotion && "transition-transform hover:scale-105",
+            "min-h-[44px] min-w-[44px]",
           )}
-          aria-label={label || "Floating action button"}
+          aria-label={
+            children
+              ? isOpen
+                ? "Close quick actions"
+                : "Open quick actions"
+              : label || "Floating action button"
+          }
+          aria-expanded={children ? isOpen : undefined}
+          aria-controls={children ? actionsId : undefined}
         >
           <animated.div style={animation}>
             {children && isOpen ? <X className="h-6 w-6" /> : icon}
@@ -79,6 +116,10 @@ export function FloatingActionButton({
       {/* Speed Dial Options */}
       {children && isOpen && (
         <div
+          id={actionsId}
+          ref={actionsRef}
+          role="group"
+          aria-label="Quick actions"
           className={cn(
             "fixed z-30",
             position === "bottom-right" && "bottom-36 right-4",
@@ -99,7 +140,8 @@ export function FloatingActionButton({
             "fixed inset-0 z-20 bg-black/20",
             hideOnDesktop && "md:hidden"
           )}
-          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+          onClick={closeQuickActions}
         />
       )}
     </>
@@ -119,15 +161,17 @@ export function SpeedDialAction({
   onClick,
   className,
 }: SpeedDialActionProps) {
+  const reducedMotion = useReducedMotion();
   const animation = useSpring({
     from: { opacity: 0, transform: "scale(0)" },
     to: { opacity: 1, transform: "scale(1)" },
     config: { tension: 300, friction: 20 },
+    immediate: reducedMotion,
   });
 
   return (
     <animated.div style={animation} className="flex items-center gap-3">
-      <span className="bg-background px-2 py-1 rounded shadow text-sm whitespace-nowrap">
+      <span className="whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-sm">
         {label}
       </span>
       <Button
@@ -135,8 +179,8 @@ export function SpeedDialAction({
         size="icon"
         variant="secondary"
         className={cn(
-          "h-12 w-12 rounded-full shadow-md",
-          "min-h-[44px] min-w-[44px]", // Ensure touch target size
+          "h-12 w-12 rounded-full border border-border",
+          "min-h-[44px] min-w-[44px]",
           className
         )}
         aria-label={label}

@@ -1,4 +1,4 @@
-import { List, Category, Item, Priority } from '@/types';
+import { Priority } from '@/types';
 
 export interface Template {
   id: string;

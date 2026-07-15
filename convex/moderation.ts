@@ -1,6 +1,10 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { ConvexError } from "convex/values";
+import { internalMutation, mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { requireAdmin } from "./lib/auth";
+import { domainError } from "./lib/errors";
+import { validatePageSize } from "./lib/validation";
 
 // Content moderation status enum
 export const ModerationStatus = {
@@ -18,88 +22,185 @@ export const ContentType = {
   CATEGORY: "category",
 } as const;
 
-// Get all content pending moderation
+const MODERATION_PAGE_LIMIT = 50;
+
+type ModerationQueueItem = {
+  id: string;
+  title: string;
+  description: string;
+  author: string;
+  authorId: string | null;
+  createdAt: number;
+  status: string;
+  flaggedReason: string;
+  moderationId: Id<"moderation">;
+} & (
+  | {
+      type: "list";
+      content: {
+        name: string;
+        description?: string;
+        completedAt?: number;
+      };
+    }
+  | {
+      type: "template";
+      content: {
+        name: string;
+        description: string;
+        isPublic?: boolean;
+        category?: string;
+        difficulty?: string;
+        season?: string;
+        duration?: string;
+      };
+    }
+  | {
+      type: "user_profile";
+      content: {
+        name: string;
+        email?: string;
+        imageUrl?: string;
+        preferences?: {
+          theme: "light" | "dark" | "system";
+          defaultPriority: "low" | "medium" | "high" | "essential";
+          autoSave: boolean;
+        };
+      };
+    }
+  | {
+      type: "category";
+      content: { name: string; color?: string; icon?: string };
+    }
+);
+
+// Get content pending moderation through a bounded cursor.
 export const getModerationQueue = query({
   args: {
     contentType: v.optional(v.string()),
     status: v.optional(v.string()),
-    limit: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    const { contentType, status = "pending", limit = 50 } = args;
-
-    // Get moderation records from database
-    let moderationQuery = ctx.db.query("moderation");
-
-    // Apply filters
-    if (status) {
-      moderationQuery = moderationQuery.filter((q) => q.eq(q.field("status"), status));
-    }
-    if (contentType && contentType !== "all") {
-      moderationQuery = moderationQuery.filter((q) => q.eq(q.field("contentType"), contentType));
-    }
-
-    const moderationRecords = await moderationQuery
+    await requireAdmin(ctx);
+    validatePageSize(
+      args.paginationOpts.numItems,
+      MODERATION_PAGE_LIMIT,
+      "Moderation queue",
+    );
+    const status = args.status ?? "pending";
+    const contentType =
+      args.contentType && args.contentType !== "all"
+        ? args.contentType
+        : undefined;
+    const moderationQuery = contentType
+      ? ctx.db
+          .query("moderation")
+          .withIndex("by_status_content_type", (q) =>
+            q.eq("status", status).eq("contentType", contentType),
+          )
+      : ctx.db
+          .query("moderation")
+          .withIndex("by_status", (q) => q.eq("status", status));
+    const result = await moderationQuery
       .order("desc")
-      .take(limit);
+      .paginate(args.paginationOpts);
+    const moderationItems: ModerationQueueItem[] = [];
 
-    // Get the actual content for each moderation record
-    const moderationItems = [];
-
-    for (const record of moderationRecords) {
-      let content = null;
-      let author = "Unknown";
-      let authorId = null;
-
-      try {
-        switch (record.contentType) {
-          case ContentType.LIST:
-          case ContentType.TEMPLATE:
-            content = await ctx.db.get(record.contentId as any);
-            if (content) {
-              const user = await ctx.db.get(content.userId);
-              author = user?.name || "Unknown";
-              authorId = content.userId;
-            }
-            break;
-          case ContentType.USER_PROFILE:
-            content = await ctx.db.get(record.contentId as any);
-            if (content) {
-              author = content.name;
-              authorId = content._id;
-            }
-            break;
-          case ContentType.CATEGORY:
-            content = await ctx.db.get(record.contentId as any);
-            if (content) {
-              author = "System";
-              authorId = null;
-            }
-            break;
-        }
-
-        if (content) {
-          moderationItems.push({
-            id: record.contentId,
-            type: record.contentType,
-            title: content.name || content.title || "Untitled",
-            description: content.description || content.email || "",
-            content,
-            author,
-            authorId,
-            createdAt: record.createdAt,
-            status: record.status,
-            flaggedReason: record.flaggedReason || "Flagged for review",
-            moderationId: record._id,
-          });
-        }
-      } catch (error) {
-        // Content might have been deleted, skip this record
-        console.warn(`Content not found for moderation record ${record._id}`);
+    for (const record of result.page) {
+      if (record.contentType === ContentType.LIST) {
+        const content = await ctx.db.get(record.contentId as Id<"lists">);
+        if (!content) continue;
+        const user = await ctx.db.get(content.userId);
+        moderationItems.push({
+          id: record.contentId,
+          type: "list",
+          title: content.name,
+          description: content.description ?? "",
+          content: {
+            name: content.name,
+            description: content.description,
+            completedAt: content.completedAt,
+          },
+          author: user?.name ?? "Unknown",
+          authorId: content.userId,
+          createdAt: record.createdAt,
+          status: record.status,
+          flaggedReason: record.flaggedReason ?? "Flagged for review",
+          moderationId: record._id,
+        });
+      } else if (record.contentType === ContentType.TEMPLATE) {
+        const content = await ctx.db.get(record.contentId as Id<"templates">);
+        if (!content) continue;
+        const user = content.createdBy
+          ? await ctx.db.get(content.createdBy)
+          : null;
+        moderationItems.push({
+          id: record.contentId,
+          type: "template",
+          title: content.name,
+          description: content.description,
+          content: {
+            name: content.name,
+            description: content.description,
+            isPublic: content.isPublic,
+            category: content.category,
+            difficulty: content.difficulty,
+            season: content.season,
+            duration: content.duration,
+          },
+          author: user?.name ?? "System",
+          authorId: content.createdBy ?? null,
+          createdAt: record.createdAt,
+          status: record.status,
+          flaggedReason: record.flaggedReason ?? "Flagged for review",
+          moderationId: record._id,
+        });
+      } else if (record.contentType === ContentType.USER_PROFILE) {
+        const content = await ctx.db.get(record.contentId as Id<"users">);
+        if (!content) continue;
+        moderationItems.push({
+          id: record.contentId,
+          type: "user_profile",
+          title: content.name,
+          description: content.email ?? "",
+          content: {
+            name: content.name,
+            email: content.email,
+            imageUrl: content.imageUrl,
+            preferences: content.preferences,
+          },
+          author: content.name,
+          authorId: content._id,
+          createdAt: record.createdAt,
+          status: record.status,
+          flaggedReason: record.flaggedReason ?? "Flagged for review",
+          moderationId: record._id,
+        });
+      } else if (record.contentType === ContentType.CATEGORY) {
+        const content = await ctx.db.get(record.contentId as Id<"categories">);
+        if (!content) continue;
+        moderationItems.push({
+          id: record.contentId,
+          type: "category",
+          title: content.name,
+          description: "",
+          content: {
+            name: content.name,
+            color: content.color,
+            icon: content.icon,
+          },
+          author: "System",
+          authorId: null,
+          createdAt: record.createdAt,
+          status: record.status,
+          flaggedReason: record.flaggedReason ?? "Flagged for review",
+          moderationId: record._id,
+        });
       }
     }
 
-    return moderationItems;
+    return { ...result, page: moderationItems };
   },
 });
 
@@ -107,6 +208,7 @@ export const getModerationQueue = query({
 export const getModerationStats = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const allModerationRecords = await ctx.db.query("moderation").collect();
 
     // Calculate stats by status
@@ -165,6 +267,7 @@ export const approveContent = mutation({
     moderatorNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { contentId, contentType, moderatorNotes } = args;
 
     // Find the moderation record
@@ -179,7 +282,7 @@ export const approveContent = mutation({
       .first();
 
     if (!moderationRecord) {
-      throw new ConvexError("Moderation record not found");
+      throw domainError("NOT_FOUND", "Moderation record not found");
     }
 
     // Update the moderation status
@@ -220,6 +323,7 @@ export const rejectContent = mutation({
     moderatorNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { contentId, contentType, reason, moderatorNotes } = args;
 
     // Find the moderation record
@@ -234,7 +338,7 @@ export const rejectContent = mutation({
       .first();
 
     if (!moderationRecord) {
-      throw new ConvexError("Moderation record not found");
+      throw domainError("NOT_FOUND", "Moderation record not found");
     }
 
     // Update the moderation status
@@ -279,6 +383,7 @@ export const flagContent = mutation({
     moderatorNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { contentId, contentType, flagReason, severity, moderatorNotes } = args;
 
     // Find the moderation record
@@ -293,7 +398,7 @@ export const flagContent = mutation({
       .first();
 
     if (!moderationRecord) {
-      throw new ConvexError("Moderation record not found");
+      throw domainError("NOT_FOUND", "Moderation record not found");
     }
 
     // Update the moderation status
@@ -342,6 +447,7 @@ export const createModerationRecord = mutation({
     flaggedReason: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { contentId, contentType, flaggedReason } = args;
 
     // Check if moderation record already exists
@@ -390,6 +496,7 @@ export const getModerationHistory = query({
     contentType: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { contentId, contentType } = args;
 
     const history = await ctx.db
@@ -421,7 +528,8 @@ export const getAutomatedFlags = query({
     contentType: v.string(),
   },
   handler: async (ctx, args) => {
-    const { content, contentType } = args;
+    await requireAdmin(ctx);
+    const { content } = args;
     
     const flags = [];
     const flaggedKeywords = ["spam", "inappropriate", "test", "fake"];
@@ -468,7 +576,9 @@ export const getAutomatedFlags = query({
 export const initializeModerationRecords = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const lists = await ctx.db.query("lists").collect();
+    const templates = await ctx.db.query("templates").collect();
     const users = await ctx.db.query("users").collect();
     const categories = await ctx.db.query("categories").collect();
 
@@ -476,9 +586,9 @@ export const initializeModerationRecords = mutation({
 
     // Check lists that need moderation
     for (const list of lists) {
-      const needsModeration = list.isTemplate ||
-        (list.name && list.name.length > 100) ||
-        (list.description && list.description.length > 500);
+      const needsModeration =
+        list.name.length > 100 ||
+        (list.description !== undefined && list.description.length > 500);
 
       if (needsModeration) {
         // Check if moderation record already exists
@@ -487,16 +597,16 @@ export const initializeModerationRecords = mutation({
           .filter((q) =>
             q.and(
               q.eq(q.field("contentId"), list._id),
-              q.eq(q.field("contentType"), list.isTemplate ? "template" : "list")
+              q.eq(q.field("contentType"), "list")
             )
           )
           .first();
 
         if (!existing) {
-          const flaggedReason = list.isTemplate ? "Template submission" : "Long content";
+          const flaggedReason = "Long content";
           await ctx.db.insert("moderation", {
             contentId: list._id,
-            contentType: list.isTemplate ? "template" : "list",
+            contentType: "list",
             status: "pending",
             flaggedReason,
             createdAt: list.createdAt || Date.now(),
@@ -504,6 +614,26 @@ export const initializeModerationRecords = mutation({
           });
           created++;
         }
+      }
+    }
+
+    for (const template of templates) {
+      const existing = await ctx.db
+        .query("moderation")
+        .withIndex("by_content", (q) =>
+          q.eq("contentId", template._id).eq("contentType", "template"),
+        )
+        .first();
+      if (!existing) {
+        await ctx.db.insert("moderation", {
+          contentId: template._id,
+          contentType: "template",
+          status: "pending",
+          flaggedReason: "Template submission",
+          createdAt: template.createdAt ?? Date.now(),
+          updatedAt: Date.now(),
+        });
+        created++;
       }
     }
 
@@ -577,6 +707,7 @@ export const initializeModerationRecords = mutation({
 export const cleanupDuplicateModerationRecords = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const allRecords = await ctx.db.query("moderation").collect();
     const seen = new Set();
     let removed = 0;
@@ -597,7 +728,7 @@ export const cleanupDuplicateModerationRecords = mutation({
 });
 
 // Create test content for moderation testing
-export const createTestModerationContent = mutation({
+export const createTestModerationContent = internalMutation({
   args: {},
   handler: async (ctx) => {
     let created = 0;

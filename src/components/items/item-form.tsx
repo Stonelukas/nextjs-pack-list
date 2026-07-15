@@ -1,173 +1,204 @@
-"use client"
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useEffect, useRef, useState } from "react";
+import { Edit2, Plus } from "lucide-react";
 
-// React imports
-import { useState } from "react";
-
-// Types
-import { Item, Priority } from "@/types";
-
-
-// Icons
-import { Plus, Edit2 } from "lucide-react";
-
-// UI Components
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { usePreferences } from "@/features/settings/hooks/use-preferences";
+import type {
+  CategoryDocument,
+  ItemDocument,
+  ItemFormValue,
+} from "@/features/lists/types";
+import { mapError } from "@/lib/errors";
 
 interface ItemFormProps {
-  categoryId: string;
-  item?: Partial<Item>;
-  onSubmit: (data: Omit<Item, "id" | "categoryId" | "createdAt" | "updatedAt">) => void;
+  categoryId: Id<"categories">;
+  item?: ItemDocument;
+  availableCategories?: CategoryDocument[];
+  onSubmit: (
+    data: ItemFormValue,
+    targetCategoryId?: Id<"categories">,
+  ) => void | Promise<unknown>;
+  online?: boolean;
   trigger?: React.ReactNode;
 }
 
-export function ItemForm({ categoryId, item, onSubmit, trigger }: ItemFormProps) {
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: item?.name || "",
-    description: item?.description || "",
-    quantity: item?.quantity || 1,
-    priority: item?.priority || Priority.MEDIUM,
-    packed: item?.packed || false,
-    notes: item?.notes || "",
-    weight: item?.weight || undefined,
-    tags: item?.tags || [],
-  });
+function emptyValue(defaultPriority: ItemFormValue["priority"]): ItemFormValue {
+  return {
+    name: "",
+    description: "",
+    quantity: 1,
+    priority: defaultPriority,
+    packed: false,
+    notes: "",
+    weight: undefined,
+    tags: [],
+  };
+}
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-    setOpen(false);
-    if (!item) {
-      // Reset form for new items
-      setFormData({
-        name: "",
-        description: "",
-        quantity: 1,
-        priority: Priority.MEDIUM,
-        packed: false,
-        notes: "",
-        weight: undefined,
-        tags: [],
-      });
+function itemValue(
+  item: ItemDocument | undefined,
+  defaultPriority: ItemFormValue["priority"],
+): ItemFormValue {
+  return item
+    ? {
+        name: item.name,
+        description: item.description ?? "",
+        quantity: item.quantity,
+        priority: item.priority,
+        packed: item.packed,
+        notes: item.notes ?? "",
+        weight: item.weight,
+        tags: item.tags ?? [],
+      }
+    : emptyValue(defaultPriority);
+}
+
+export function ItemForm({
+  availableCategories = [],
+  categoryId,
+  item,
+  onSubmit,
+  online = true,
+  trigger,
+}: ItemFormProps) {
+  const { preferences } = usePreferences();
+  const defaultPriority = preferences?.defaultPriority ?? "medium";
+  const [open, setOpen] = useState(false);
+  const [formData, setFormData] = useState<ItemFormValue>(() =>
+    itemValue(item, defaultPriority),
+  );
+  const [targetCategoryId, setTargetCategoryId] =
+    useState<Id<"categories">>(categoryId);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionGuard = useRef(false);
+  const draftTouched = useRef(false);
+
+  useEffect(() => {
+    if (!item && open && !draftTouched.current) {
+      setFormData((current) => ({
+        ...current,
+        priority: defaultPriority,
+      }));
+    }
+  }, [defaultPriority, item, open]);
+
+  const updateFormData = (updates: Partial<ItemFormValue>) => {
+    draftTouched.current = true;
+    setFormData((current) => ({ ...current, ...updates }));
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!online || submissionGuard.current) return;
+    submissionGuard.current = true;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onSubmit(
+        { ...formData, name: formData.name.trim() },
+        item ? targetCategoryId : undefined,
+      );
+      setOpen(false);
+      if (!item) {
+        draftTouched.current = false;
+        setFormData(emptyValue(defaultPriority));
+      }
+    } catch (error) {
+      setSubmitError(mapError(error).message);
+    } finally {
+      submissionGuard.current = false;
+      setSubmitting(false);
     }
   };
 
-  const defaultTrigger = item ? (
-    <Button variant="ghost" size="icon">
-      <Edit2 className="h-4 w-4" />
-    </Button>
-  ) : (
-    <Button size="sm" variant="outline" className="gap-2">
-      <Plus className="h-4 w-4" />
-      Add Item
-    </Button>
-  );
-
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (submitting && !nextOpen) return;
+        setOpen(nextOpen);
+        if (nextOpen) {
+          draftTouched.current = false;
+          setFormData(itemValue(item, defaultPriority));
+          setTargetCategoryId(categoryId);
+          setSubmitError(null);
+        }
+      }}
+    >
       <DialogTrigger asChild>
-        {trigger || defaultTrigger}
+        {trigger ?? (item ? <Button variant="ghost" size="icon"><Edit2 className="h-4 w-4" /><span className="sr-only">Edit item</span></Button> : <Button size="sm" variant="outline"><Plus className="mr-2 h-4 w-4" />Add item</Button>)}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{item ? "Edit Item" : "Add New Item"}</DialogTitle>
-          <DialogDescription>
-            {item ? "Update the item details below." : "Add a new item to this category."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[425px]" showCloseButton={!submitting}>
+        <DialogHeader><DialogTitle>{item ? "Edit item" : "Add item"}</DialogTitle><DialogDescription>Set the item name, quantity, priority, and optional details.</DialogDescription></DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., T-shirts"
-                required
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="e.g., 5 cotton t-shirts for daily wear"
-                rows={2}
-              />
-            </div>
-            
+            <div className="grid gap-2"><Label htmlFor="item-name">Name</Label><Input id="item-name" value={formData.name} onChange={(event) => updateFormData({ name: event.target.value })} required /></div>
+            <div className="grid gap-2"><Label htmlFor="item-description">Description</Label><Textarea id="item-description" value={formData.description} onChange={(event) => updateFormData({ description: event.target.value })} rows={2} /></div>
             <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2"><Label htmlFor="item-quantity">Quantity</Label><Input id="item-quantity" type="number" min="1" value={formData.quantity} onChange={(event) => updateFormData({ quantity: Number.parseInt(event.target.value, 10) || 1 })} /></div>
+              <div className="grid gap-2"><Label htmlFor="item-priority">Priority</Label><Select value={formData.priority} onValueChange={(priority) => updateFormData({ priority: priority as ItemFormValue["priority"] })}><SelectTrigger id="item-priority"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="essential">Essential</SelectItem><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
+            </div>
+            {item && availableCategories.length > 1 ? (
               <div className="grid gap-2">
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
-                  required
-                />
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="priority">Priority</Label>
+                <Label htmlFor="item-category">Category</Label>
                 <Select
-                  value={formData.priority}
-                  onValueChange={(value: Priority) => setFormData({ ...formData, priority: value })}
+                  value={targetCategoryId}
+                  onValueChange={(value) => {
+                    draftTouched.current = true;
+                    setTargetCategoryId(value as Id<"categories">);
+                  }}
                 >
-                  <SelectTrigger id="priority">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger id="item-category"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={Priority.ESSENTIAL}>Essential</SelectItem>
-                    <SelectItem value={Priority.HIGH}>High</SelectItem>
-                    <SelectItem value={Priority.MEDIUM}>Medium</SelectItem>
-                    <SelectItem value={Priority.LOW}>Low</SelectItem>
+                    {availableCategories.map((category) => (
+                      <SelectItem key={category._id} value={category._id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="weight">Weight (optional)</Label>
-              <Input
-                id="weight"
-                type="number"
-                step="0.1"
-                min="0"
-                value={formData.weight || ""}
-                onChange={(e) => setFormData({ ...formData, weight: e.target.value ? parseFloat(e.target.value) : undefined })}
-                placeholder="e.g., 2.5 kg"
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Any additional notes..."
-                rows={2}
-              />
-            </div>
+            ) : null}
+            <div className="grid gap-2"><Label htmlFor="item-weight">Weight</Label><Input id="item-weight" type="number" min="0" step="0.1" value={formData.weight ?? ""} onChange={(event) => updateFormData({ weight: event.target.value ? Number.parseFloat(event.target.value) : undefined })} /></div>
+            <div className="grid gap-2"><Label htmlFor="item-notes">Notes</Label><Textarea id="item-notes" value={formData.notes} onChange={(event) => updateFormData({ notes: event.target.value })} rows={2} /></div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              {item ? "Update" : "Add"} Item
-            </Button>
-          </DialogFooter>
+          {submitError ? (
+            <p role="alert" className="mb-4 text-sm text-destructive">
+              {submitError}
+            </p>
+          ) : null}
+          {!online ? (
+            <p
+              id="item-form-offline-reason"
+              role="status"
+              aria-live="polite"
+              className="mb-4 text-sm text-warning"
+            >
+              Reconnect to save this item.
+            </p>
+          ) : null}
+          <DialogFooter><Button type="button" variant="outline" disabled={submitting} onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={!online || submitting} aria-busy={submitting} aria-describedby={!online ? "item-form-offline-reason" : undefined}>{submitting ? `${item ? "Updating" : "Adding"} item…` : `${item ? "Update" : "Add"} item`}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

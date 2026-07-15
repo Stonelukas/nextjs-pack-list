@@ -1,10 +1,19 @@
-"use client"
 
-import { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useSpring, animated } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
 import { Check, Trash2 } from "lucide-react";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { cn } from "@/lib/utils";
+
+function getActionForeground(color?: string) {
+  if (color?.includes("bg-warning")) return "text-warning-foreground";
+  if (color?.includes("bg-danger") || color?.includes("bg-destructive")) {
+    return "text-danger-foreground";
+  }
+  if (color?.includes("bg-success")) return "text-success-foreground";
+  return "text-primary-foreground";
+}
 
 interface SwipeableItemProps {
   children: ReactNode;
@@ -29,20 +38,25 @@ export function SwipeableItem({
   children,
   onSwipeLeft,
   onSwipeRight,
-  leftAction = { icon: <Check className="h-5 w-5" />, label: "Complete", color: "bg-green-500" },
-  rightAction = { icon: <Trash2 className="h-5 w-5" />, label: "Delete", color: "bg-red-500" },
+  leftAction = { icon: <Check className="h-5 w-5" />, label: "Complete", color: "bg-success" },
+  rightAction = { icon: <Trash2 className="h-5 w-5" />, label: "Delete", color: "bg-danger" },
   threshold = 100,
   disabled = false,
   className,
 }: SwipeableItemProps) {
+  const reducedMotion = useReducedMotion();
   const [{ x, opacity }, api] = useSpring(() => ({
     x: 0,
     opacity: 1,
   }));
 
+  useEffect(() => {
+    if (reducedMotion) api.start({ x: 0, opacity: 1, immediate: true });
+  }, [api, reducedMotion]);
+
   const bind = useDrag(
     ({ down, movement: [mx], velocity: [vx], cancel }) => {
-      if (disabled) return;
+      if (disabled || reducedMotion) return;
 
       // If the swipe is fast enough, trigger the action
       if (!down && Math.abs(vx) > 0.5) {
@@ -117,7 +131,7 @@ export function SwipeableItem({
   const rightActionX = x.to((val) => Math.max(0, val - threshold));
 
   return (
-    <div className={cn("relative overflow-hidden", className)}>
+    <div className={cn("relative", className)}>
       {/* Left Action Background */}
       {onSwipeRight && (
         <animated.div
@@ -130,7 +144,7 @@ export function SwipeableItem({
             transform: rightActionX.to((val) => `translateX(${val}px)`),
           }}
         >
-          <div className="flex items-center gap-2 text-white">
+          <div className={cn("flex items-center gap-2", getActionForeground(leftAction.color))}>
             {leftAction.icon}
             {leftAction.label && (
               <span className="font-medium">{leftAction.label}</span>
@@ -151,7 +165,7 @@ export function SwipeableItem({
             transform: leftActionX.to((val) => `translateX(${val}px)`),
           }}
         >
-          <div className="flex items-center gap-2 text-white">
+          <div className={cn("flex items-center gap-2", getActionForeground(rightAction.color))}>
             {rightAction.label && (
               <span className="font-medium">{rightAction.label}</span>
             )}

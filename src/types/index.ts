@@ -6,7 +6,7 @@
  * templates, and related functionality.
  */
 
-import type { BaseEntity, ThemeOption } from './utility';
+import type { ThemeOption } from './utility';
 
 // Re-export utility types for convenience
 export type {
@@ -94,7 +94,7 @@ export interface Item {
  */
 export interface Category {
   id: string;
-  _id?: any; // Convex ID type - used for backend operations
+  _id?: string; // Legacy migration compatibility only
   name: string;
   color?: string;
   icon?: string;
@@ -115,7 +115,6 @@ export interface List {
   description?: string;
   categories: Category[];
   tags?: string[];
-  isTemplate: boolean;
   templateId?: string;
   userId: string;
   sharedWith?: string[];
@@ -137,11 +136,18 @@ export type TemplateSeason = 'spring' | 'summer' | 'fall' | 'winter' | 'all';
 /**
  * Reusable packing list template
  */
+export type TemplateCategoryData = Omit<
+  Category,
+  'id' | 'createdAt' | 'updatedAt' | 'items'
+> & {
+  items: Array<Omit<Item, 'id' | 'createdAt' | 'updatedAt'>>;
+};
+
 export interface Template {
   id: string;
   name: string;
   description: string;
-  categories: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>[];
+  categories: TemplateCategoryData[];
   tags: string[];
   isPublic: boolean;
   usageCount: number;

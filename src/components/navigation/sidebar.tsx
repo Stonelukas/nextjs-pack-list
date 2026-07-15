@@ -1,376 +1,267 @@
-"use client";
-
-import { useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { useNavigationStore } from "@/store/navigation-store";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  ChevronRight,
-  ChevronDown,
-  Home,
-  List,
-  LayoutTemplate,
-  Plus,
-  Settings,
-  Archive,
-  Star,
-  Clock,
   CheckCircle,
   Circle,
-  Tag,
   Folder,
+  Home,
+  LayoutTemplate,
+  List,
+  Plus,
+  Settings,
+  Shield,
+  Star,
+  Tag,
 } from "lucide-react";
-import { useConvexStore } from "@/hooks/use-convex-store";
-import { 
-  useFilteredNavigation, 
-  useRoleBasedActions,
-  useRoleBasedAccess,
-  type RoleBasedNavItem,
-  type Permission 
-} from "@/hooks/use-role-based-navigation";
+import { Link, NavLink, useLocation } from "react-router-dom";
+
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLists } from "@/features/lists/hooks/use-lists";
+import { useRoleBasedAccess } from "@/hooks/use-role-based-navigation";
+import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   className?: string;
 }
 
-interface NavSection {
+interface SidebarLink {
   title: string;
-  items: RoleBasedNavItem[];
-  collapsible?: boolean;
-  defaultOpen?: boolean;
-  requiredPermissions?: Permission[];
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
+  show?: boolean;
+}
+
+function isCurrentLink(pathname: string, search: string, href: string) {
+  const [targetPathname, targetSearch = ""] = href.split("?");
+  if (pathname !== targetPathname) return false;
+
+  const current = new URLSearchParams(search);
+  const target = new URLSearchParams(targetSearch);
+  if (targetPathname === "/lists") {
+    return current.get("status") === target.get("status");
+  }
+  if (targetPathname === "/templates") {
+    return current.get("filter") === target.get("filter");
+  }
+  return true;
+}
+
+function groupHeadingId(title: string) {
+  return `sidebar-${title.toLowerCase().replaceAll(" ", "-")}`;
+}
+
+function NavigationGroup({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
+  const headingId = groupHeadingId(title);
+
+  return (
+    <section aria-labelledby={headingId}>
+      <h2
+        className="mb-2 px-3 text-xs font-semibold tracking-wide text-muted-foreground"
+        id={headingId}
+      >
+        {title}
+      </h2>
+      <div className="space-y-1">{children}</div>
+    </section>
+  );
+}
+
+function SidebarNavigationLink({
+  badge,
+  current,
+  href,
+  icon: Icon,
+  title,
+}: SidebarLink & { current: boolean }) {
+  return (
+    <Link
+      to={href}
+      aria-current={current ? "page" : undefined}
+      aria-label={typeof badge === "number" && badge > 0 ? `${title}, ${badge}` : undefined}
+      className={cn(
+        "flex min-h-11 items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted",
+        current &&
+          "bg-primary/10 text-primary ring-1 ring-inset ring-primary/15",
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        <span className="truncate">{title}</span>
+      </span>
+      {typeof badge === "number" && badge > 0 ? (
+        <span className="ml-2 min-w-6 rounded-full bg-surface px-2 py-0.5 text-center text-xs font-semibold text-muted-foreground ring-1 ring-inset ring-border">
+          {badge}
+        </span>
+      ) : null}
+    </Link>
+  );
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const pathname = usePathname();
-  const { lists } = useConvexStore();
-  const { 
-    sidebarOpen, 
-    sidebarCollapsed,
-    toggleSection,
-    isSectionCollapsed,
-    setActiveSection
-  } = useNavigationStore();
-  const { canCreateList, canCreateTemplate } = useRoleBasedActions();
-  const { hasAllPermissions } = useRoleBasedAccess();
-
-  // Set active section based on pathname
-  useEffect(() => {
-    if (pathname.startsWith('/lists')) {
-      setActiveSection('lists');
-    } else if (pathname.startsWith('/templates')) {
-      setActiveSection('templates');
-    } else if (pathname.startsWith('/tags') || pathname.startsWith('/categories')) {
-      setActiveSection('organize');
-    } else {
-      setActiveSection('main');
-    }
-  }, [pathname, setActiveSection]);
-
-  const isActive = (href: string) => {
-    if (href === "/" && pathname === "/") return true;
-    if (href !== "/" && pathname.startsWith(href)) return true;
-    return false;
-  };
-
-  // Calculate list statistics
-  const activeListCount = lists.filter((list) => !list.completedAt).length;
-  const completedListCount = lists.filter((list) => list.completedAt).length;
-  const templateCount = lists.filter((list) => list.isTemplate).length;
-
-  const navSections: NavSection[] = [
+  const location = useLocation();
+  const { lists } = useLists();
+  const { hasPermission, isAdmin } = useRoleBasedAccess();
+  const values = lists ?? [];
+  const active = values.filter((list) => !list.completedAt).length;
+  const completed = values.filter((list) => list.completedAt).length;
+  const recent = [...values]
+    .sort(
+      (left, right) =>
+        (right.updatedAt ?? right._creationTime) -
+        (left.updatedAt ?? left._creationTime),
+    )
+    .slice(0, 5);
+  const listLinks: SidebarLink[] = [
+    { title: "Dashboard", href: "/", icon: Home },
     {
-      title: "Main",
-      collapsible: false,
-      items: [
-        {
-          title: "Dashboard",
-          href: "/",
-          icon: Home,
-        },
-        {
-          title: "New List",
-          href: "/lists/new",
-          icon: Plus,
-          requiredPermissions: ["create_lists"],
-        },
-      ],
+      title: "New list",
+      href: "/lists/new",
+      icon: Plus,
+      show: hasPermission("create_lists"),
     },
     {
-      title: "Lists",
-      collapsible: true,
-      defaultOpen: true,
-      requiredPermissions: ["view_lists"],
-      items: [
-        {
-          title: "All Lists",
-          href: "/lists",
-          icon: List,
-          badge: lists.length,
-          requiredPermissions: ["view_lists"],
-        },
-        {
-          title: "Active",
-          href: "/lists?status=active",
-          icon: Circle,
-          badge: activeListCount,
-          requiredPermissions: ["view_lists"],
-        },
-        {
-          title: "Completed",
-          href: "/lists?status=completed",
-          icon: CheckCircle,
-          badge: completedListCount,
-          requiredPermissions: ["view_lists"],
-        },
-        {
-          title: "Archived",
-          href: "/lists?status=archived",
-          icon: Archive,
-          badge: 0,
-          requiredPermissions: ["view_lists"],
-        },
-      ],
+      title: "All lists",
+      href: "/lists",
+      icon: List,
+      badge: values.length,
+      show: hasPermission("view_lists"),
     },
+    {
+      title: "Active",
+      href: "/lists?status=active",
+      icon: Circle,
+      badge: active,
+      show: hasPermission("view_lists"),
+    },
+    {
+      title: "Completed",
+      href: "/lists?status=completed",
+      icon: CheckCircle,
+      badge: completed,
+      show: hasPermission("view_lists"),
+    },
+  ].filter((link) => link.show !== false);
+  const organizeLinks: SidebarLink[] = [
     {
       title: "Templates",
-      collapsible: true,
-      defaultOpen: false,
-      requiredPermissions: ["view_templates"],
-      items: [
-        {
-          title: "Browse Templates",
-          href: "/templates",
-          icon: LayoutTemplate,
-          requiredPermissions: ["view_templates"],
-        },
-        {
-          title: "My Templates",
-          href: "/templates?filter=mine",
-          icon: Star,
-          badge: templateCount,
-          requiredPermissions: ["create_templates"],
-        },
-        {
-          title: "Recent",
-          href: "/templates?filter=recent",
-          icon: Clock,
-          requiredPermissions: ["view_templates"],
-        },
-      ],
+      href: "/templates",
+      icon: LayoutTemplate,
+      show: hasPermission("view_templates"),
     },
     {
-      title: "Organize",
-      collapsible: true,
-      defaultOpen: false,
-      requiredPermissions: ["view_lists"],
-      items: [
-        {
-          title: "Tags",
-          href: "/tags",
-          icon: Tag,
-          requiredPermissions: ["view_lists"],
-        },
-        {
-          title: "Categories",
-          href: "/categories",
-          icon: Folder,
-          requiredPermissions: ["view_lists"],
-        },
-      ],
+      title: "My templates",
+      href: "/templates?filter=mine",
+      icon: Star,
+      show: hasPermission("create_templates"),
     },
-  ];
-
-  // Apply role-based filtering to all nav items at once (hooks can't be called inside .map)
-  const allNavItems = navSections.flatMap(section => section.items);
-  const allFilteredItems = useFilteredNavigation(allNavItems);
-  const filteredHrefs = new Set(allFilteredItems.map(item => item.href));
-
-  const filteredSections = navSections
-    .map(section => {
-      const filteredItems = section.items.filter(item => filteredHrefs.has(item.href));
-
-      if (filteredItems.length === 0) return null;
-
-      if (section.requiredPermissions) {
-        if (!hasAllPermissions(section.requiredPermissions)) return null;
-      }
-
-      return {
-        ...section,
-        items: filteredItems,
-      };
-    })
-    .filter((section): section is NavSection => section !== null);
-
-  // Recent lists for quick access
-  const recentLists = lists
-    .sort((a, b) => {
-      const dateA = new Date(a.updatedAt || a.createdAt).getTime();
-      const dateB = new Date(b.updatedAt || b.createdAt).getTime();
-      return dateB - dateA;
-    })
-    .slice(0, 5);
+    {
+      title: "Categories",
+      href: "/categories",
+      icon: Folder,
+      show: hasPermission("view_lists"),
+    },
+    {
+      title: "Tags",
+      href: "/tags",
+      icon: Tag,
+      show: hasPermission("view_lists"),
+    },
+  ].filter((link) => link.show !== false);
 
   return (
     <aside
       className={cn(
-        "flex h-full w-64 flex-col border-r bg-background",
-        className
+        "flex h-full w-64 flex-col border-r bg-surface-muted/55",
+        className,
       )}
+      aria-label="Journey navigation"
     >
       <ScrollArea className="flex-1 px-3">
-        <div className="space-y-4 py-4">
-          {filteredSections.map((section) => (
-            <div key={section.title}>
-              {section.collapsible ? (
-                <Collapsible
-                  open={!isSectionCollapsed(section.title.toLowerCase())}
-                  onOpenChange={() =>
-                    toggleSection(section.title.toLowerCase())
+        <nav className="space-y-6 py-5" aria-label="Journey views">
+          <NavigationGroup title="Lists">
+            {listLinks.map((link) => (
+              <SidebarNavigationLink
+                {...link}
+                key={link.href}
+                current={isCurrentLink(
+                  location.pathname,
+                  location.search,
+                  link.href,
+                )}
+              />
+            ))}
+          </NavigationGroup>
+
+          <NavigationGroup title="Organize">
+            {organizeLinks.map((link) => (
+              <SidebarNavigationLink
+                {...link}
+                key={link.href}
+                current={isCurrentLink(
+                  location.pathname,
+                  location.search,
+                  link.href,
+                )}
+              />
+            ))}
+          </NavigationGroup>
+
+          <NavigationGroup title="Recent">
+            {recent.length ? (
+              recent.map((list) => (
+                <NavLink
+                  key={list._id}
+                  to={`/lists/${list._id}`}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted",
+                      isActive &&
+                        "bg-primary/10 text-primary ring-1 ring-inset ring-primary/15",
+                    )
                   }
                 >
-                  <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-1.5 text-sm font-semibold hover:bg-accent rounded-md transition-colors">
-                    <span>{section.title}</span>
-                    {!isSectionCollapsed(section.title.toLowerCase()) ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-1 mt-1">
-                    {section.items.map((item) => (
-                      <SidebarNavItem
-                        key={item.href}
-                        item={item}
-                        isActive={isActive(item.href)}
-                      />
-                    ))}
-                  </CollapsibleContent>
-                </Collapsible>
-              ) : (
-                <>
-                  <h4 className="px-2 py-1.5 text-sm font-semibold">
-                    {section.title}
-                  </h4>
-                  <div className="space-y-1">
-                    {section.items.map((item) => (
-                      <SidebarNavItem
-                        key={item.href}
-                        item={item}
-                        isActive={isActive(item.href)}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-
-          {/* Recent Lists Section */}
-          {recentLists.length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="px-2 py-1.5 text-sm font-semibold">
-                  Recent Lists
-                </h4>
-                <div className="space-y-1">
-                  {recentLists.map((list) => (
-                    <Link
-                      key={list._id}
-                      href={`/lists/${list._id}`}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors",
-                        pathname === `/lists/${list._id}` &&
-                          "bg-accent text-accent-foreground"
-                      )}
-                    >
-                      <List className="h-4 w-4" />
-                      <span className="truncate">{list.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </ScrollArea>
-
-      {/* Settings at bottom */}
-      <div className="border-t p-3">
-        <Link href="/settings">
-          <Button
-            variant={pathname === "/settings" ? "secondary" : "ghost"}
-            className="w-full justify-start"
-            size="sm"
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            Settings
-          </Button>
-        </Link>
-      </div>
-    </aside>
-  );
-}
-
-interface SidebarNavItemProps {
-  item: RoleBasedNavItem;
-  isActive: boolean;
-  depth?: number;
-}
-
-function SidebarNavItem({
-  item,
-  isActive,
-  depth = 0,
-}: SidebarNavItemProps) {
-  const Icon = item.icon;
-
-  return (
-    <>
-      <Link
-        href={item.href}
-        className={cn(
-          "flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors",
-          isActive && "bg-accent text-accent-foreground font-medium",
-          depth > 0 && "ml-4"
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4" />
-          <span>{item.title}</span>
-        </div>
-        {item.badge !== undefined && item.badge > 0 && (
-          <span
-            className={cn(
-              "flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-xs",
-              isActive
-                ? "bg-background text-accent-foreground"
-                : "bg-muted text-muted-foreground"
+                  <List className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{list.name}</span>
+                </NavLink>
+              ))
+            ) : (
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                Your latest lists will appear here.
+              </p>
             )}
-          >
-            {item.badge}
-          </span>
-        )}
-      </Link>
-      {item.children?.map((child) => (
-        <SidebarNavItem
-          key={child.href}
-          item={child}
-          isActive={isActive}
-          depth={depth + 1}
-        />
-      ))}
-    </>
+          </NavigationGroup>
+
+          <NavigationGroup title="Settings">
+            <SidebarNavigationLink
+              title="Settings"
+              href="/settings"
+              icon={Settings}
+              current={isCurrentLink(
+                location.pathname,
+                location.search,
+                "/settings",
+              )}
+            />
+            {isAdmin ? (
+              <SidebarNavigationLink
+                title="Admin"
+                href="/admin"
+                icon={Shield}
+                current={isCurrentLink(
+                  location.pathname,
+                  location.search,
+                  "/admin",
+                )}
+              />
+            ) : null}
+          </NavigationGroup>
+        </nav>
+      </ScrollArea>
+    </aside>
   );
 }

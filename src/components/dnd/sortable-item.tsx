@@ -1,42 +1,36 @@
-"use client"
-
+import type { Id } from "../../../convex/_generated/dataModel";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Item } from "@/types";
-import { ItemRow } from "../items/item-row";
+
+import { ItemRow } from "@/components/items/item-row";
+import type {
+  CategoryDocument,
+  ItemDocument,
+  ItemFormValue,
+} from "@/features/lists/types";
 
 interface SortableItemProps {
-  item: Item;
-  onTogglePacked: (itemId: string) => void;
-  onUpdate: (itemId: string, updates: Partial<Item>) => void;
-  onDelete: (itemId: string) => void;
+  item: ItemDocument;
+  availableCategories?: CategoryDocument[];
+  onTogglePacked: (itemId: Id<"items">) => void | Promise<unknown>;
+  onUpdate: (
+    itemId: Id<"items">,
+    updates: Partial<ItemFormValue>,
+    targetCategoryId?: Id<"categories">,
+  ) => void | Promise<unknown>;
+  onAdjustQuantity?: (
+    itemId: Id<"items">,
+    delta: number,
+  ) => void | Promise<unknown>;
+  onDelete: (itemId: Id<"items">) => void | Promise<unknown>;
+  offlineReasonId?: string;
+  online?: boolean;
 }
 
-export function SortableItem({ item, onTogglePacked, onUpdate, onDelete }: SortableItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: (item as any)._id || item.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <ItemRow
-        item={item}
-        onTogglePacked={onTogglePacked}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
-        isDragging={isDragging}
-        dragHandleProps={{ ...attributes, ...listeners }}
-      />
-    </div>
-  );
+export function SortableItem({ online = true, ...props }: SortableItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.item._id,
+    disabled: !online,
+  });
+  return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}><ItemRow {...props} online={online} isDragging={isDragging} dragHandleProps={online ? { ...attributes, ...listeners } : undefined} /></div>;
 }

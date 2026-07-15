@@ -1,1191 +1,482 @@
-# task-master-init - API Reference
+# API and Configuration Reference
 
-**IMPORTANT**: This document must be updated with every new feature implementation to maintain accurate project knowledge.
+Generated Convex types are authoritative. Examples below describe the active browser/server contract and intentionally avoid legacy plain-string domain models.
 
-## Update Checklist for New APIs
-- [ ] Add new interfaces/contracts
-- [ ] Document parameters and return types  
-- [ ] Include usage examples
-- [ ] Note breaking changes
-- [ ] Update version information
+## Browser environment
 
----
-
-## Table of Contents
-1. [Public APIs](#public-apis)
-2. [Internal APIs](#internal-apis)
-3. [Data Structures](#data-structures)
-4. [Configuration](#configuration)
-5. [Constants & Enums](#constants--enums)
-6. [Error Codes](#error-codes)
-
----
-
-## Public APIs
-
-### Task Master AI System
-
-#### Core Task Management API
 ```typescript
-/**
- * Main Task Master store interface for managing tasks, projects, and workflows
- */
-interface TaskMasterAPI {
-  // Task Operations
-  createTask(task: CreateTaskInput): Promise<Task>;
-  updateTask(id: string, updates: Partial<Task>): Promise<Task>;
-  deleteTask(id: string): Promise<void>;
-  getTask(id: string): Promise<Task>;
-  listTasks(filter?: TaskFilter): Promise<Task[]>;
-
-  // Status Management
-  setTaskStatus(id: string, status: TaskStatus): Promise<Task>;
-  getTasksByStatus(status: TaskStatus): Promise<Task[]>;
-
-  // Dependency Management
-  addDependency(taskId: string, dependsOnId: string): Promise<void>;
-  removeDependency(taskId: string, dependsOnId: string): Promise<void>;
-  validateDependencies(): Promise<ValidationResult>;
-
-  // Analysis & Intelligence
-  analyzeComplexity(taskId?: string): Promise<ComplexityReport>;
-  expandTask(id: string, options?: ExpansionOptions): Promise<Task[]>;
-  getNextTask(criteria?: NextTaskCriteria): Promise<Task | null>;
+interface AppEnv {
+  clerkPublishableKey: string; // VITE_CLERK_PUBLISHABLE_KEY, required
+  convexUrl: string;           // VITE_CONVEX_URL, required
+  sentryDsn?: string;          // VITE_SENTRY_DSN, optional
+  appUrl: string;              // VITE_APP_URL or window.location.origin
 }
 ```
 
-#### Task Data Types
+Every `VITE_*` value is public in the built client.
+
+## Provider contract
+
+```text
+RootErrorBoundary
+  -> ThemeProvider
+    -> RuntimeConfigurationProvider
+      -> configured: ClerkProvider
+        -> ConvexProviderWithClerk
+          -> AuthReadinessProvider
+            -> ConvexUserBootstrap
+              -> PreferenceThemeSync
+              -> RouterProvider
+      -> unconfigured: UnavailableAuthReadinessProvider
+        -> RouterProvider
+```
+
 ```typescript
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  complexity: number;
-  dependencies: string[];
-  subtasks?: Task[];
-  tags?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-}
-
-type TaskStatus = 'pending' | 'in-progress' | 'done' | 'review' | 'deferred' | 'cancelled';
-type TaskPriority = 'low' | 'medium' | 'high';
-
-interface CreateTaskInput {
-  title: string;
-  description: string;
-  priority?: TaskPriority;
-  dependencies?: string[];
-  tags?: string[];
+const ACCOUNT_BOOTSTRAP_TIMEOUT_MS = 15_000;
+type BootstrapStatus = "idle" | "loading" | "ready" | "error";
+interface ConvexUserBootstrapValue {
+  status: BootstrapStatus;
+  error: UserFacingError | null;
+  retry(): void;
 }
 ```
 
-### Pack List Application APIs
+`ConvexUserBootstrap` always renders children. For a ready signed-in identity it waits for Convex authentication and calls `api.users.ensureCurrentUser({})` once per `userId:attempt`; a 15-second pending boundary publishes a retryable mapped error. Timers clear on ready/error/retry/unmount, and keyed promise completions from prior attempts are ignored. `PreferenceThemeSync` does not mount its Convex preference hook until bootstrap is ready and retains changed-server-value protection for unsaved local selections.
 
-#### Pack List Store API
 ```typescript
-/**
- * Zustand store for Pack List application state management
- */
-interface PackListStore {
-  // State
-  user: User | null;
-  lists: List[];
-  currentListId: string | null;
-  templates: Template[];
+interface AppProvidersProps {
+  runtimeConfiguration: RuntimeEnvResult;
+  routerInstance: RouterProviderProps["router"];
+}
 
-  // User Management
-  setUser(user: User): void;
-  updateUserPreferences(preferences: Partial<UserPreferences>): void;
+const AUTH_READINESS_TIMEOUT_MS = 10_000;
 
-  // List Operations
-  createList(list: Omit<List, 'id' | 'createdAt' | 'updatedAt'>): string;
-  updateList(id: string, updates: Partial<List>): void;
-  deleteList(id: string): void;
-  duplicateList(id: string): string;
-  setCurrentList(id: string | null): void;
+interface SharedRenderOptions {
+  runtimeConfiguration?: RuntimeEnvResult;
+  // scenario/auth/convex/theme/storage/connectivity options omitted here
+}
 
-  // Category Operations
-  addCategory(listId: string, category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): string;
-  updateCategory(listId: string, categoryId: string, updates: Partial<Category>): void;
-  deleteCategory(listId: string, categoryId: string): void;
-  reorderCategories(listId: string, categoryIds: string[]): void;
+function unavailableAuth(): MockAuthState; // isLoaded=false only
+```
 
-  // Item Operations
-  addItem(listId: string, categoryId: string, item: Omit<Item, 'id' | 'createdAt' | 'updatedAt'>): string;
-  updateItem(listId: string, categoryId: string, itemId: string, updates: Partial<Item>): void;
-  deleteItem(listId: string, categoryId: string, itemId: string): void;
-  toggleItemPacked(listId: string, categoryId: string, itemId: string): void;
-  moveItem(listId: string, itemId: string, fromCategoryId: string, toCategoryId: string): void;
+Production `App` passes the browser router explicitly. `renderAppRoute()` and `renderWithProviders()` pass memory routers to the same `AppProviders` component, so tests exercise the production provider order and can choose configured or unconfigured runtime branches. `unavailableAuth()` does not encode a final readiness status; the real provider converts unresolved input to unavailable after ten seconds and Retry creates a fresh provider attempt.
 
-  // Template Operations
-  saveAsTemplate(listId: string, name: string, description: string, isPublic?: boolean): string;
-  applyTemplate(templateId: string, listName: string): string;
-  deleteTemplate(templateId: string): void;
-  updateTemplate(templateId: string, updates: Partial<Template>): void;
+`RootLayout` always renders `Header`. The outer header contract consumes only `useAuthReadiness()` and selects `PublicHeader` unless status is `ready` and `isSignedIn` is true. Only `ReadySignedInHeader` may call `useRoleBasedAccess()`, mount Clerk `UserButton`, or derive provider-backed permissions. This makes the same one-line home link, public primary navigation, theme control, and sign-in route available during loading, signed-out, unavailable, and unconfigured startup without constructing or querying Clerk/Convex.
 
-  // Utility Operations
-  getListProgress(listId: string): ListProgress;
-  clearAllData(): void;
-  importData(data: ImportData): void;
-  exportData(): ExportData;
+## Public home contract
+
+```typescript
+interface PublicHomePageProps {
+  authStatus: "loading" | "ready" | "unavailable";
+  accountStatus?: "idle" | "loading" | "error";
+  onRetryAuth?(): void;
+  onRetryAccount?(): void;
 }
 ```
 
----
+`PublicHomePage` has no Clerk or Convex dependency, always exposes React Router links to `/sign-up` and `/sign-in`, and owns `<main id="main-content" tabIndex={-1}>`. `HomePage` supplies readiness/bootstrap state and renders `ListOverview` only for ready signed-in auth plus ready bootstrap. Auth loading/unavailability and account idle/loading/error retain the complete landing; failed boundaries expose their matching retry callback. For non-authenticated `/`, `RootLayout` renders the route content directly to avoid a nested main; other public paths and navigation loading retain its shared `main-content` wrapper. `AuthLayout` withholds Clerk forms until auth readiness is `ready` and otherwise owns the centered loading/unavailable status panel.
 
-## Internal APIs
+`ListOverview` keeps the list summary/filter/action contracts unchanged. Its page heading is always `My packing lists`; the status query selects the collection heading (`Packing lists`, `Active lists`, or `Completed lists`). Quick starts precede the stat group. `<dl role="group" aria-label="Packing list statistics">` exposes Packing lists, Completed, Items, and Average packed as single values. Search, sort, layout, import, and create controls live with the collection, and `hasMore` renders `Load more lists` even when the loaded filtered result is empty.
 
-### Pack List Core Types
-```typescript
-/**
- * Core data models for Pack List application
- */
-interface User {
-  id: string;
-  name: string;
-  email?: string;
-  preferences?: UserPreferences;
-  createdAt: Date;
-  updatedAt: Date;
-}
+## Route contract
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  defaultPriority: Priority;
-  autoSave: boolean;
-}
+Declared in `src/app/routes.tsx`:
 
-interface List {
-  id: string;
-  name: string;
-  description?: string;
-  categories: Category[];
-  tags?: string[];
-  isTemplate: boolean;
-  templateId?: string;
-  userId: string;
-  sharedWith?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  color?: string;
-  icon?: string;
-  order: number;
-  items: Item[];
-  collapsed?: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface Item {
-  id: string;
-  name: string;
-  quantity: number;
-  packed: boolean;
-  priority: Priority;
-  notes?: string;
-  categoryId: string;
-  description?: string;
-  weight?: number;
-  tags?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-enum Priority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  ESSENTIAL = 'essential'
-}
+```text
+/
+/sign-in/*
+/sign-up/*
+/lists
+/lists/new
+/lists/:id
+/lists/:id/edit
+/templates
+/categories
+/tags
+/settings
+/admin
+*
 ```
 
-### Template System
+`RequireAuth` evaluates auth loading, auth unavailable, signed-out redirect, bootstrap idle/loading, bootstrap error, then protected children; it preserves the complete pathname, search, and hash return URL. `RequireConfiguredRuntime` wraps only `/templates` and renders a provider-independent service-unavailable card when public runtime values are invalid. `RequireAdmin` waits for `api.users.getCurrentAccess` and requires `{ authenticated: true, role: "admin" }`.
+
+## Domain error contract
+
 ```typescript
-interface Template {
-  id: string;
-  name: string;
-  description: string;
-  category: TemplateCategory;
-  difficulty: TemplateDifficulty;
-  season: TemplateSeason;
-  duration: string;
-  categories: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>[];
-  tags: string[];
-  isPublic: boolean;
-  createdBy: string;
-  usageCount: number;
-  rating: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
+type DomainErrorCode =
+  | "UNAUTHENTICATED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "VALIDATION"
+  | "OFFLINE";
 
-enum TemplateCategory {
-  TRAVEL = 'travel',
-  OUTDOOR = 'outdoor',
-  EVENTS = 'events',
-  SEASONAL = 'seasonal',
-  BUSINESS = 'business',
-  SPORTS = 'sports',
-  EMERGENCY = 'emergency'
-}
-
-type TemplateDifficulty = 'beginner' | 'intermediate' | 'advanced';
-type TemplateSeason = 'spring' | 'summer' | 'fall' | 'winter' | 'all';
-```
-
-### Utility Types
-```typescript
-interface ListProgress {
-  totalItems: number;
-  packedItems: number;
-  completionPercentage: number;
-  itemsByPriority: Record<Priority, { total: number; packed: number }>;
-  itemsByCategory: Record<string, { total: number; packed: number; name: string }>;
-}
-
-interface ImportData {
-  lists?: List[];
-  templates?: Template[];
-  user?: User;
-}
-
-interface ExportData {
-  lists: List[];
-  templates: Template[];
-  user: User | null;
-}
-
-// Utility types for type safety
-type BaseEntity = {
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type CreateEntityInput<T extends BaseEntity> = Omit<T, keyof BaseEntity>;
-type UpdateEntityInput<T extends BaseEntity> = Partial<Omit<T, keyof BaseEntity>>;
-```
-
----
-
-## Data Structures
-
-### Task Master Data Models
-```typescript
-/**
- * Task Master configuration and data structures
- */
-interface TaskMasterConfig {
-  models: {
-    main: ModelConfig;
-    research: ModelConfig;
-    fallback: ModelConfig;
-  };
-  global: GlobalConfig;
-}
-
-interface ModelConfig {
-  provider: 'anthropic' | 'openai' | 'perplexity' | 'google' | 'mistral' | 'openrouter' | 'xai';
-  modelId: string;
-  maxTokens: number;
-  temperature: number;
-}
-
-interface GlobalConfig {
-  logLevel: 'debug' | 'info' | 'warn' | 'error';
-  debug: boolean;
-  defaultNumTasks: number;
-  defaultSubtasks: number;
-  defaultPriority: 'low' | 'medium' | 'high';
-  projectName: string;
-  responseLanguage: string;
-  userId: string;
-  ollamaBaseURL?: string;
-  bedrockBaseURL?: string;
-  azureOpenaiBaseURL?: string;
-}
-
-interface ComplexityReport {
-  taskId: string;
-  complexity: number;
-  recommendations: string[];
-  suggestedSubtasks: CreateTaskInput[];
-  estimatedHours: number;
-  riskFactors: string[];
-}
-
-interface ValidationResult {
-  isValid: boolean;
-  errors: ValidationError[];
-  warnings: ValidationWarning[];
-}
-
-interface ValidationError {
-  taskId: string;
-  type: 'circular_dependency' | 'missing_dependency' | 'invalid_status';
+interface DomainErrorData {
+  code: DomainErrorCode;
   message: string;
 }
-```
 
-### Pack List Component Props
-```typescript
-/**
- * Component prop interfaces for Pack List application
- */
-interface ListDetailProps {
-  listId: string;
-}
-
-interface CategoryProps {
-  category: Category;
-  listId: string;
-  onUpdate: (updates: Partial<Category>) => void;
-  onDelete: () => void;
-  onAddItem: (item: CreateEntityInput<Item>) => void;
-}
-
-interface ItemProps {
-  item: Item;
-  onUpdate: (updates: Partial<Item>) => void;
-  onDelete: () => void;
-  onTogglePacked: () => void;
-}
-
-interface TemplateCardProps {
-  template: Template;
-  onApply: (templateId: string, listName: string) => void;
-  onDelete?: (templateId: string) => void;
-  showActions?: boolean;
-}
-
-interface ProgressProps {
-  progress: ListProgress;
-  showDetails?: boolean;
-  className?: string;
+interface UserFacingError {
+  code: DomainErrorCode | "UNEXPECTED";
+  title: string;
+  message: string;
+  retryable: boolean;
 }
 ```
 
-### Hook Return Types
+`mapError(error)` maps Convex/domain/network failures. Expected domain failures are not reported to Sentry as unexpected exceptions.
+
+## Convex identity and authorization helpers
+
 ```typescript
-/**
- * Custom hook return types
- */
-interface UseKeyboardShortcutsReturn {
-  shortcuts: ShortcutConfig[];
-  registerShortcut: (config: ShortcutConfig) => void;
-  unregisterShortcut: (key: string) => void;
+function requireIdentity(ctx: QueryCtx | MutationCtx): Promise<UserIdentity>;
+function requireCurrentUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">>;
+function requireAdmin(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">>;
+function requireOwnedList(
+  ctx: QueryCtx | MutationCtx,
+  listId: Id<"lists">,
+): Promise<Doc<"lists">>;
+function requireOwnedCategory(
+  ctx: QueryCtx | MutationCtx,
+  categoryId: Id<"categories">,
+): Promise<{ category: Doc<"categories">; list: Doc<"lists"> }>;
+function requireOwnedItem(
+  ctx: QueryCtx | MutationCtx,
+  itemId: Id<"items">,
+): Promise<{
+  item: Doc<"items">;
+  category: Doc<"categories">;
+  list: Doc<"lists">;
+}>;
+```
+
+`requireCurrentUser` maps `identity.subject` through `users.by_clerk_id`. Browser callers never provide the authorization identity.
+
+## Typed list query hooks
+
+```typescript
+type ListWithCategories = FunctionReturnType<typeof api.lists.getList>;
+type ListSummary = FunctionReturnType<
+  typeof api.lists.getListSummaries
+>["page"][number];
+type ExportList = FunctionReturnType<
+  typeof api.lists.getListExportPage
+>["page"][number];
+
+function useLists(): {
+  lists: ListSummary[] | undefined;
+  loading: boolean;
+  hasMore: boolean;
+  loadMore(): void;
+};
+
+function useListExportData(): {
+  lists: ExportList[] | undefined;
+  loading: boolean;
+};
+
+function useList(listId: Id<"lists"> | null | undefined): {
+  list: ListWithCategories | undefined;
+  loading: boolean;
+};
+```
+
+`getListSummaries({ paginationOpts })` enforces `1..50` items and returns newest-first ordinary-list metadata plus `categoryCount`, `itemCount`, and `packedCount` without nested data. `getListExportPage({ paginationOpts })` is separately capped and returns oldest-first full categories/items for deterministic account export and aggregate views. Both collection queries use `lists.by_user_template(userId, false)`, exclude legacy template rows, and omit the storage-only `isTemplate` and `isPublic` compatibility fields. `getList({ listId })` remains the owned detail query and omits those fields as well.
+
+## Typed list action hook
+
+`useListActions()` exposes exact `FunctionArgs` contracts for:
+
+- list create/update/complete/incomplete/delete/duplicate;
+- category add/update/delete/collapse/reorder;
+- item add/update/delete/toggle/reorder/move;
+- atomic item field update plus destination move;
+- authoritative quantity deltas;
+- atomic nested list import.
+
+Representative signatures:
+
+```typescript
+type CreateListInput = FunctionArgs<typeof api.lists.createList>;
+type UpdateListInput = FunctionArgs<typeof api.lists.updateList>;
+type MoveItemInput = FunctionArgs<typeof api.lists.moveItem>;
+type UpdateItemAndMoveInput = FunctionArgs<typeof api.lists.updateItemAndMove>;
+type AdjustItemQuantityInput = FunctionArgs<typeof api.lists.adjustItemQuantity>;
+type ImportListInput = FunctionArgs<typeof api.lists.importList>;
+
+interface AsyncActionOptions {
+  rethrow?: boolean;
 }
 
-interface ShortcutConfig {
-  key: string;
-  ctrl?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-  meta?: boolean;
-  action: () => void;
-  description: string;
-}
-
-interface UsePerformanceMonitorReturn {
-  measureRender: <T>(fn: () => T) => T;
-  measureAsync: <T>(fn: () => Promise<T>) => Promise<T>;
-  getMetrics: () => PerformanceMetrics;
-  clearMetrics: () => void;
-}
-
-interface PerformanceMetrics {
-  renderTime: number;
-  asyncOperationTime: number;
-  memoryUsage: number;
-  componentName: string;
-  timestamp: Date;
+interface AsyncActionState {
+  pending: boolean;
+  error: UserFacingError | null;
+  resetError(): void;
 }
 ```
 
----
+Successful void mutations are wrapped as `true`; mapped failures return `undefined` unless rethrow is requested.
 
-## Configuration
+`createList` accepts only `{ name, description?, tags? }`; `updateList` accepts only `{ listId, name?, description?, tags? }`. They never accept legacy list-template/publication flags. `addCategory`, `updateCategory`, and `addItem` expose no `order` argument; adds append server-side and exact-set reorder mutations are the only public ordering contract. New records still store `isTemplate: false` plus `isPublic: false` internally for schema compatibility, but public client contracts do not expose those fields.
 
-### Task Master Configuration
+`updateItem` and `updateItemAndMove` accept `weight?: number | null`: omitted leaves weight unchanged, a number sets it, and `null` clears it. The item form adapter omits destination fields when the selected category already contains the item; a real category change includes both `toCategoryId` and `toIndex` and remains atomic. Direct `deleteItem` removes linked moderation/history rows before deleting the item.
+
+Authoritative list/category/item/import writes share these semantic limits: trimmed required names up to 200 characters, optional text up to 5,000, priorities `low | medium | high | essential`, positive integer quantities, finite non-negative weights, and at most 50 non-empty trimmed tags up to 100 characters each. `importList` additionally allows at most 50 categories, 200 items per category, 1,000 total items, and 1,000,000 UTF-8 JSON bytes; limit failures return `VALIDATION` before any write.
+
+## Templates, preferences, and access
+
 ```typescript
-/**
- * Task Master AI system configuration
- * Located at: .taskmaster/config.json
- */
-interface TaskMasterConfig {
-  models: {
-    main: {
-      provider: 'anthropic';
-      modelId: 'claude-3-7-sonnet-20250219';
-      maxTokens: 120000;
-      temperature: 0.2;
-    };
-    research: {
-      provider: 'perplexity';
-      modelId: 'sonar-pro';
-      maxTokens: 8700;
-      temperature: 0.1;
-    };
-    fallback: {
-      provider: 'anthropic';
-      modelId: 'claude-3-7-sonnet-20250219';
-      maxTokens: 120000;
-      temperature: 0.2;
-    };
+type TemplateSummary = FunctionReturnType<
+  typeof api.templates.getPublicTemplateSummaries
+>["page"][number];
+type TemplateWithCategories = FunctionReturnType<
+  typeof api.templates.getTemplate
+>;
+type OwnedTemplateExport = FunctionReturnType<
+  typeof api.templates.getOwnedTemplateExportPage
+>["page"][number];
+type ApplyTemplateInput = FunctionArgs<typeof api.templates.applyTemplate>;
+type CreateTemplateFromListInput = FunctionArgs<
+  typeof api.templates.createTemplateFromList
+>;
+
+type UserPreferences = FunctionArgs<
+  typeof api.users.updateCurrentUserPreferences
+>["preferences"];
+
+type AdminAccess = FunctionReturnType<typeof api.users.getCurrentAccess>;
+```
+
+Server template reads:
+
+```typescript
+getPublicTemplateSummaries(args: {
+  paginationOpts: PaginationOptions; // numItems 1..50
+}): PaginationResult<TemplateSummary>;
+getOwnedTemplateSummaries(args: {
+  paginationOpts: PaginationOptions; // authenticated, numItems 1..50
+}): PaginationResult<TemplateSummary>;
+getOwnedTemplateExportPage(args: {
+  paginationOpts: PaginationOptions; // authenticated, numItems 1..5
+}): PaginationResult<OwnedTemplateExport>;
+getTemplate(args: {
+  templateId: Id<"templates">;
+}): TemplateWithCategories;
+```
+
+Public summaries contain only public templates. Owned summaries contain only records whose `createdBy` equals the server-derived current user; public owned records may therefore appear in both feeds. Summary/detail/export DTOs are explicit, include `isOwned`, and omit the stable internal `createdBy` ID. Each summary includes `categoryCount` and `itemCount` and omits nested categories/items. `getTemplate` loads one public or caller-owned record and returns bounded canonical children; anonymous private and missing IDs both return `NOT_FOUND`.
+
+`useTemplates()` merges paginated public and owned summaries by `Id<"templates">`, exposes `loading`, `loadingMore`, `canLoadMore`, `loadMore`, and apply/create actions. The template library renders the next-page control whenever either feed can continue. `useTemplateDetail(templateId)` loads children separately for the selected template. `useOwnedTemplateExportData()` requests every five-record owner export page and returns full nested templates only after status is `Exhausted`. Preview, apply, and account-export entry points wait for their complete authorized data. No template hook accepts or sends a Clerk ID.
+
+User-created and imported templates permit at most 50 categories, 200 items per category, 1,000 total items, and 20 public templates per owner. The public quota check precedes source child reads; sequential reads stop at the aggregate limit. Template/category/item fields reuse the shared name, optional-text, priority, quantity, weight, order, and tag validation. Create, legacy import, and official seed writes persist denormalized counts in `templates`; a bounded internal backfill repairs older rows and rebuilds `templateStats`; children remain in `templateCategories` and `templateItems`.
+
+`internal.templates.seedTemplates({})` synchronizes the backend-owned catalog in `convex/lib/official_templates.ts`. The canonical catalog contains nine public official templates, 39 categories, and 264 items. It matches existing official templates by name, inserts only missing definitions, returns `{ inserted, skipped, total }`, and starts bounded metadata/stat repair. It is callable only through trusted Convex tooling, never from the browser.
+
+- `usePreferences()` returns current-user preferences and an update action. Settings keeps controls and account export disabled while preferences are unresolved. The settings tab is controlled by the validated `section` search parameter; in-app tab changes replace that parameter, and same-route links such as `?section=migration` update the already-mounted page.
+- `useAdminAccess()` returns loading, authenticated, role, and `isAdmin` projections.
+
+## Clerk synchronization
+
+```typescript
+internal.users.upsertFromClerk(args: {
+  clerkId: string;
+  name: string;
+  email?: string;
+  imageUrl?: string;
+  role: "user" | "admin";
+}): Id<"users">;
+
+internal.users.deleteFromClerk(args: {
+  clerkId: string;
+}): { success: true; pending: boolean };
+```
+
+Only the signed Convex HTTP webhook calls these internal functions. Clerk and admin deletion enqueue the same `userDeletionJobs` workflow; `internal.users.continueUserDeletion({ jobId })` removes bounded batches until descendants, linked records, the user, and the job are gone.
+
+## Administration and moderation APIs
+
+```typescript
+getAllUsers(args: {
+  paginationOpts: PaginationOptions;
+}): PaginationResult<Doc<"users">>;
+
+deleteUser(args: {
+  userId: Id<"users">;
+}): { success: true; pending: true };
+
+updateUser(args: {
+  userId: Id<"users">;
+  updates: {
+    name?: string;
+    email?: string;
+    preferences?: UserPreferences;
   };
-  global: {
-    logLevel: 'info';
-    debug: false;
-    defaultNumTasks: 10;
-    defaultSubtasks: 5;
-    defaultPriority: 'medium';
-    projectName: 'Taskmaster';
-    responseLanguage: 'English';
-    userId: string;
+}): Doc<"users">;
+
+getUserDetails(args: { userId: Id<"users"> }): {
+  user: Doc<"users">;
+  stats: {
+    totalLists: number;
+    completedLists: number;
+    activeLists: number;
+    templateCount: number;
   };
+  recentLists: Array<PublicOrdinaryListDto>;
+};
+
+getModerationQueue(args: {
+  contentType?: string;
+  status?: string;
+  paginationOpts: PaginationOptions; // numItems 1..50
+}): PaginationResult<ModerationQueueItem>;
+```
+
+`getAllUsers` has no unbounded branch; the client requests 50-record pages and filters only loaded rows. `deleteUser` requires an explicit admin and rejects the authenticated administrator's own user ID before scheduling deletion. `updateUser` returns the post-patch authoritative user with its exact `updatedAt`, allowing a short-lived client bridge that is discarded once reactive queries catch up. The mounted editor resets its React Hook Form values whenever that authoritative user object changes, so unsaved fields never cross user IDs. User details count lists from `lists.by_user_template(userId, false)` and templates from `templates.by_creator`; recent list DTOs omit `isTemplate`/`isPublic`. Moderation queue items form a generated discriminated union for list, template, user-profile, and category content. Template preview fields are canonical (`isPublic`, category, difficulty, season, duration); list completion is list-only.
+
+`templateStats` stores singleton `{ key: "global", totalTemplates, totalUsage, updatedAt }`. Template analytics reads that aggregate and `templates.by_usage` descending with `take(10)` rather than scanning every template. Dashboard list activity reads `lists.by_template(false)`, so legacy template rows cannot inflate active-user, creation, or completion metrics.
+
+## Legacy import API
+
+```typescript
+const LEGACY_STORAGE_KEY = "pack-list-storage";
+const LEGACY_SOURCE_KEY = "zustand:pack-list-storage:v1";
+const LEGACY_ARCHIVE_KEY = "pack-list-storage:legacy-import:v1";
+
+type LegacySourceRead =
+  | { state: "found"; raw: string }
+  | { state: "missing" }
+  | { state: "inaccessible" };
+
+interface LegacyImportPreview {
+  sourceKey: "zustand:pack-list-storage:v1";
+  rawSource: string;
+  fingerprint: `fnv1a128:${string}`;
+  lists: unknown[];       // normalized validator-compatible list records
+  templates: unknown[];   // normalized validator-compatible template records
+  preferences?: {
+    theme?: "light" | "dark" | "system";
+    defaultPriority?: "low" | "medium" | "high" | "essential";
+    autoSave?: boolean;
+  };
+  rejected: Array<{ path: string; reason: string; raw: unknown }>;
+  manualExportRequired?: string;
 }
 ```
 
-### Pack List Configuration
 ```typescript
-/**
- * Next.js configuration for Pack List application
- * Located at: pack-list/next.config.ts
- */
-interface NextConfig {
-  reactStrictMode: boolean;
-  images: {
-    domains: string[];
-  };
-  eslint: {
-    ignoreDuringBuilds: boolean;
-  };
-  typescript: {
-    ignoreBuildErrors: boolean;
-  };
-}
+api.migrations.getLegacyImportStatus(args: {
+  sourceKey: "zustand:pack-list-storage:v1";
+  fingerprint: string;
+}): {
+  status: "already_imported";
+  listsImported: number;
+  templatesImported: number;
+} | null;
 
-/**
- * Shadcn/ui configuration
- * Located at: pack-list/components.json
- */
-interface ComponentsConfig {
-  $schema: string;
-  style: 'new-york';
-  rsc: boolean;
-  tsx: boolean;
-  tailwind: {
-    config: string;
-    css: string;
-    baseColor: 'neutral';
-    cssVariables: boolean;
-    prefix: string;
-  };
-  iconLibrary: 'lucide';
-  aliases: {
-    components: '@/components';
-    utils: '@/lib/utils';
-    ui: '@/components/ui';
-    lib: '@/lib';
-    hooks: '@/hooks';
-  };
-}
+api.migrations.importLegacyData(args: {
+  sourceKey: "zustand:pack-list-storage:v1";
+  fingerprint: string;
+  lists: LegacyListInput[];
+  templates: LegacyTemplateInput[];
+  preferences?: LegacyPreferences;
+}): {
+  status: "imported" | "already_imported";
+  listsImported: number;
+  templatesImported: number;
+};
 ```
 
-### Environment Variables
-```bash
-# Task Master AI API Keys
-ANTHROPIC_API_KEY=your_anthropic_key_here
-PERPLEXITY_API_KEY=your_perplexity_key_here
-OPENAI_API_KEY=your_openai_key_here
-GOOGLE_API_KEY=your_google_key_here
-MISTRAL_API_KEY=your_mistral_key_here
-OPENROUTER_API_KEY=your_openrouter_key_here
-XAI_API_KEY=your_xai_key_here
+Both APIs require the current authenticated Convex user. The mutation recomputes the fingerprint, enforces shared limits, validates all records before writing, and records completion last.
 
-# Pack List Application (Optional)
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
-NEXT_PUBLIC_GA_ID=your_google_analytics_id
-NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn
+## PWA build contract
 
-# Development
-NODE_ENV=development|production
-ANALYZE=true  # For bundle analysis
-```
+`vite.config.ts` configures:
 
-### Storage Configuration
 ```typescript
-/**
- * Local storage keys and configuration
- */
-export const STORAGE_KEYS = {
-  PACK_LIST: 'pack-list-storage',
-  USER_PREFERENCES: 'user-preferences',
-  THEME: 'theme-preference',
-} as const;
-
-export const DEFAULTS = {
-  ITEM_QUANTITY: 1,
-  PRIORITY: 'medium',
-  THEME: 'system',
-  AUTO_SAVE: true,
-} as const;
-```
-
----
-
-## Constants & Enums
-
-### Pack List Application Constants
-```typescript
-/**
- * Application constants for Pack List
- * Located at: pack-list/src/constants/index.ts
- */
-export const STORAGE_KEYS = {
-  PACK_LIST: 'pack-list-storage',
-  USER_PREFERENCES: 'user-preferences',
-  THEME: 'theme-preference',
-} as const;
-
-export const DEFAULTS = {
-  ITEM_QUANTITY: 1,
-  PRIORITY: 'medium',
-  THEME: 'system',
-  AUTO_SAVE: true,
-} as const;
-
-export const APP_METADATA = {
-  NAME: 'Pack List',
-  DESCRIPTION: 'Smart Packing List Tracker',
-  VERSION: '0.1.0',
-  AUTHOR: 'Task Master AI',
-} as const;
-```
-
-### Priority and Status Enums
-```typescript
-/**
- * Priority levels for packing items
- */
-export enum Priority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  ESSENTIAL = 'essential'
-}
-
-/**
- * Task status enumeration for Task Master
- */
-export enum TaskStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in-progress',
-  DONE = 'done',
-  REVIEW = 'review',
-  DEFERRED = 'deferred',
-  CANCELLED = 'cancelled'
-}
-
-/**
- * Template categories for organizing packing templates
- */
-export enum TemplateCategory {
-  TRAVEL = 'travel',
-  OUTDOOR = 'outdoor',
-  EVENTS = 'events',
-  SEASONAL = 'seasonal',
-  BUSINESS = 'business',
-  SPORTS = 'sports',
-  EMERGENCY = 'emergency'
-}
-```
-
-### Keyboard Shortcuts
-```typescript
-/**
- * Global keyboard shortcuts configuration
- * Located at: pack-list/src/hooks/use-keyboard-shortcuts.tsx
- */
-export const GLOBAL_SHORTCUTS = [
-  {
-    key: 'n',
-    ctrl: true,
-    action: 'create-new-list',
-    description: 'Create new list',
-  },
-  {
-    key: 'k',
-    ctrl: true,
-    action: 'focus-search',
-    description: 'Focus search',
-  },
-  {
-    key: '/',
-    action: 'focus-search-alt',
-    description: 'Focus search (alternative)',
-  },
-] as const;
-
-export const LIST_SHORTCUTS = [
-  {
-    key: 'a',
-    action: 'add-item',
-    description: 'Add new item',
-  },
-  {
-    key: 'c',
-    action: 'add-category',
-    description: 'Add new category',
-  },
-  {
-    key: 'e',
-    ctrl: true,
-    action: 'export-list',
-    description: 'Export list',
-  },
-  {
-    key: 'p',
-    ctrl: true,
-    action: 'print-list',
-    description: 'Print list',
-  },
-] as const;
-```
-
-### Performance Constants
-```typescript
-/**
- * Performance monitoring constants
- */
-export const PERFORMANCE_THRESHOLDS = {
-  RENDER_TIME_WARNING: 16, // 16ms for 60fps
-  RENDER_TIME_ERROR: 33, // 33ms for 30fps
-  MEMORY_WARNING: 50 * 1024 * 1024, // 50MB
-  MEMORY_ERROR: 100 * 1024 * 1024, // 100MB
-} as const;
-
-export const CACHE_SETTINGS = {
-  DEFAULT_TTL: 3600, // 1 hour in seconds
-  MAX_CACHE_SIZE: 100, // Maximum number of cached items
-  CLEANUP_INTERVAL: 300, // 5 minutes in seconds
-} as const;
-```
-
----
-
-## Error Codes
-
-### Error Code Reference
-| Code | Name | Description | HTTP Status |
-|------|------|-------------|-------------|
-| E001 | INVALID_INPUT | Invalid input parameters | 400 |
-| E002 | NOT_FOUND | Resource not found | 404 |
-| E003 | UNAUTHORIZED | Authentication required | 401 |
-| E004 | FORBIDDEN | Access denied | 403 |
-| E005 | CONFLICT | Resource conflict | 409 |
-| E500 | SERVER_ERROR | Internal server error | 500 |
-
-### Error Response Format
-```json
 {
-    "error": {
-        "code": "E001",
-        "message": "Human-readable error message",
-        "details": {
-            "field": "Additional context"
-        },
-        "timestamp": "2024-01-01T00:00:00Z"
-    }
+  registerType: "prompt",
+  manifest: {
+    name: "Route Ledger",
+    short_name: "Route Ledger",
+    start_url: "/",
+    scope: "/",
+  },
+  workbox: {
+    globPatterns: ["**/*.{js,css,html,woff,woff2}"],
+    navigateFallback: "/index.html",
+    runtimeCaching: [],
+    skipWaiting: false,
+    clientsClaim: false,
+  },
 }
 ```
 
----
+Generated artifacts include `manifest.webmanifest`, `sw.js`, and `workbox-*.js`. There is no hand-authored source manifest and no offline domain-data cache.
 
-## Versioning
+## Browser source compatibility contract
 
-### API Version History
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | September 01, 2025 | Initial release |
+Vite source files do not use Next/RSC client-boundary directives. `src/app/task-6-source-contracts.test.ts` scans retained non-test JavaScript/TypeScript source and rejects a top-level `"use client"` or `'use client'` marker with either optional semicolon form.
 
-### Breaking Changes
-<!-- Document any breaking changes between versions -->
+## Vercel configuration
 
-### Deprecation Notices
-<!-- List deprecated APIs and their replacements -->
-
----
-
-## Usage Examples
-
-### Task Master AI System Usage
-```typescript
-// Initialize Task Master in a project
-import { exec } from 'child_process';
-
-// Basic task management
-const initProject = async () => {
-  // Initialize Task Master
-  await exec('task-master init');
-
-  // Parse PRD to generate tasks
-  await exec('task-master parse-prd .taskmaster/docs/prd.txt');
-
-  // Analyze complexity
-  await exec('task-master analyze-complexity --research');
-
-  // Get next task
-  await exec('task-master next');
-};
-
-// Using MCP integration with Claude Code
-const mcpConfig = {
-  "mcpServers": {
-    "task-master-ai": {
-      "command": "npx",
-      "args": ["-y", "--package=task-master-ai", "task-master-ai"],
-      "env": {
-        "ANTHROPIC_API_KEY": process.env.ANTHROPIC_API_KEY,
-        "PERPLEXITY_API_KEY": process.env.PERPLEXITY_API_KEY
-      }
-    }
-  }
-};
+```json
+{"$schema":"https://openapi.vercel.sh/vercel.json","framework":"vite","installCommand":"bun install --frozen-lockfile","buildCommand":"bun run build","outputDirectory":"dist","rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
 ```
 
-### Pack List Store Usage
-```typescript
-// Using the Pack List Zustand store
-import { usePackListStore } from '@/store/usePackListStore';
+Existing static files are served before the rewrite. The static origin has no business API or Clerk webhook.
 
-const PackListComponent = () => {
-  const {
-    lists,
-    currentListId,
-    createList,
-    addCategory,
-    addItem,
-    toggleItemPacked,
-    getListProgress
-  } = usePackListStore();
+## Environment ownership
 
-  // Create a new packing list
-  const handleCreateList = () => {
-    const listId = createList({
-      name: 'Weekend Trip',
-      description: 'Packing for a weekend getaway',
-      categories: [],
-      tags: ['travel', 'weekend'],
-      isTemplate: false,
-      userId: 'user-123',
-    });
+### Public Vite/Vercel
 
-    // Add a category
-    const categoryId = addCategory(listId, {
-      name: 'Clothing',
-      color: '#3B82F6',
-      icon: 'shirt',
-      order: 0,
-      items: [],
-    });
-
-    // Add items to the category
-    addItem(listId, categoryId, {
-      name: 'T-shirts',
-      quantity: 3,
-      packed: false,
-      priority: Priority.MEDIUM,
-      categoryId,
-    });
-  };
-
-  // Toggle item packed status
-  const handleToggleItem = (listId: string, categoryId: string, itemId: string) => {
-    toggleItemPacked(listId, categoryId, itemId);
-  };
-
-  // Get progress for a list
-  const progress = currentListId ? getListProgress(currentListId) : null;
-
-  return (
-    <div>
-      {progress && (
-        <div>Progress: {progress.completionPercentage}%</div>
-      )}
-      {/* Render lists and items */}
-    </div>
-  );
-};
+```env
+VITE_CLERK_PUBLISHABLE_KEY=
+VITE_CONVEX_URL=
+VITE_APP_URL=
+VITE_SENTRY_DSN=
+# Optional local Convex CLI metadata; not part of RuntimeEnv
+VITE_CONVEX_SITE_URL=https://your-deployment.convex.site
 ```
 
-### Custom Hooks Usage
-```typescript
-// Using keyboard shortcuts hook
-import { useKeyboardShortcuts, globalShortcuts } from '@/hooks/use-keyboard-shortcuts';
+### Convex deployment
 
-const App = () => {
-  // Register global shortcuts
-  useKeyboardShortcuts(globalShortcuts);
-
-  // Register custom shortcuts
-  const customShortcuts = [
-    {
-      key: 's',
-      ctrl: true,
-      action: () => {
-        // Save current list
-        console.log('Saving list...');
-      },
-      description: 'Save list',
-    },
-  ];
-
-  useKeyboardShortcuts(customShortcuts);
-
-  return <div>App content</div>;
-};
-
-// Using performance monitoring hook
-import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
-
-const ExpensiveComponent = () => {
-  const { measureRender, measureAsync, getMetrics } = usePerformanceMonitor({
-    componentName: 'ExpensiveComponent',
-    enableLogging: true,
-  });
-
-  const expensiveCalculation = () => {
-    return measureRender(() => {
-      // Expensive synchronous operation
-      return heavyComputation();
-    });
-  };
-
-  const expensiveAsyncOperation = async () => {
-    return measureAsync(async () => {
-      // Expensive asynchronous operation
-      return await fetchLargeDataset();
-    });
-  };
-
-  useEffect(() => {
-    const metrics = getMetrics();
-    console.log('Performance metrics:', metrics);
-  }, []);
-
-  return <div>{/* Component content */}</div>;
-};
+```env
+CLERK_JWT_ISSUER_DOMAIN=
+CLERK_WEBHOOK_SECRET=
 ```
 
-### Template System Usage
-```typescript
-// Working with templates
-import { usePackListStore } from '@/store/usePackListStore';
+### Local/CI linkage
 
-const TemplateManager = () => {
-  const {
-    templates,
-    saveAsTemplate,
-    applyTemplate,
-    deleteTemplate,
-    getAllTemplates
-  } = usePackListStore();
-
-  // Save a list as a template
-  const handleSaveAsTemplate = (listId: string) => {
-    const templateId = saveAsTemplate(
-      listId,
-      'Business Trip Template',
-      'Complete packing list for business travel',
-      true // Make it public
-    );
-    console.log('Template saved:', templateId);
-  };
-
-  // Apply a template to create a new list
-  const handleApplyTemplate = (templateId: string) => {
-    const newListId = applyTemplate(templateId, 'My Business Trip');
-    console.log('New list created from template:', newListId);
-  };
-
-  // Get all available templates
-  const allTemplates = getAllTemplates();
-
-  return (
-    <div>
-      {allTemplates.map(template => (
-        <div key={template.id}>
-          <h3>{template.name}</h3>
-          <p>{template.description}</p>
-          <button onClick={() => handleApplyTemplate(template.id)}>
-            Use Template
-          </button>
-          <button onClick={() => deleteTemplate(template.id)}>
-            Delete
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-};
+```env
+CONVEX_DEPLOYMENT=
+CONVEX_DEPLOY_KEY=
 ```
 
----
+`CONVEX_DEPLOY_KEY` is a target-scoped secret used only by the approved Convex production release stage. Repository verification CI and the Vercel static build do not consume it. `CLERK_SECRET_KEY` and Sentry upload variables are not part of the active build contract.
 
-## Testing
+## Convex production release contract
 
-### Pack List Test Utilities
-```typescript
-// Mock factories for Pack List testing
-export const createMockList = (overrides: Partial<List> = {}): List => ({
-  id: 'test-list-id',
-  name: 'Test List',
-  description: 'A test packing list',
-  categories: [],
-  tags: ['test'],
-  isTemplate: false,
-  userId: 'test-user',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  ...overrides,
-});
-
-export const createMockCategory = (overrides: Partial<Category> = {}): Category => ({
-  id: 'test-category-id',
-  name: 'Test Category',
-  color: '#3B82F6',
-  icon: 'package',
-  order: 0,
-  items: [],
-  collapsed: false,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  ...overrides,
-});
-
-export const createMockItem = (overrides: Partial<Item> = {}): Item => ({
-  id: 'test-item-id',
-  name: 'Test Item',
-  quantity: 1,
-  packed: false,
-  priority: Priority.MEDIUM,
-  categoryId: 'test-category-id',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  ...overrides,
-});
-
-// Store testing utilities
-export const createMockStore = () => ({
-  lists: [createMockList()],
-  currentListId: 'test-list-id',
-  templates: [],
-  user: null,
-  createList: jest.fn(),
-  updateList: jest.fn(),
-  deleteList: jest.fn(),
-  addCategory: jest.fn(),
-  addItem: jest.fn(),
-  toggleItemPacked: jest.fn(),
-});
+```bash
+REVISION="$(git rev-parse HEAD)"
+bunx convex deploy --dry-run --typecheck enable --message "route-ledger:$REVISION"
+bunx convex deploy --typecheck enable --message "route-ledger:$REVISION"
+bunx convex run templates:seedTemplates '{}' --prod --typecheck enable --codegen disable
+bunx convex function-spec --prod
+bunx convex logs --prod --history 50
 ```
 
-### Task Master Test Helpers
-```typescript
-// Task Master testing utilities
-export const createMockTask = (overrides: Partial<Task> = {}): Task => ({
-  id: 'test-task-id',
-  title: 'Test Task',
-  description: 'A test task description',
-  status: 'pending',
-  priority: 'medium',
-  complexity: 5,
-  dependencies: [],
-  tags: ['test'],
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  ...overrides,
-});
+The operator uses exactly one target selector: a production `CONVEX_DEPLOY_KEY`, or an authenticated checkout whose `CONVEX_DEPLOYMENT` links the intended project and whose default production deployment has been confirmed. The deployment audit message must match the frontend Git revision. Run the idempotent official-template synchronization after deploying a fresh backend or expanding the catalog, then verify nine public summaries. Schema/index readiness, expected function metadata, signed Clerk webhook delivery, and authenticated access are required before Vercel promotion.
 
-export const createMockConfig = (overrides: Partial<TaskMasterConfig> = {}): TaskMasterConfig => ({
-  models: {
-    main: {
-      provider: 'anthropic',
-      modelId: 'claude-3-7-sonnet-20250219',
-      maxTokens: 120000,
-      temperature: 0.2,
-    },
-    research: {
-      provider: 'perplexity',
-      modelId: 'sonar-pro',
-      maxTokens: 8700,
-      temperature: 0.1,
-    },
-    fallback: {
-      provider: 'anthropic',
-      modelId: 'claude-3-7-sonnet-20250219',
-      maxTokens: 120000,
-      temperature: 0.2,
-    },
-  },
-  global: {
-    logLevel: 'info',
-    debug: false,
-    defaultNumTasks: 10,
-    defaultSubtasks: 5,
-    defaultPriority: 'medium',
-    projectName: 'Test Project',
-    responseLanguage: 'English',
-    userId: 'test-user',
-  },
-  ...overrides,
-});
-```
+## Configuration files
 
----
+- `vite.config.ts`: React, Tailwind, generated PWA, aliases, and test-boundary gate.
+- `vercel.json`: frozen Bun static-SPA deployment.
+- `components.json`: Shadcn aliases with `rsc: false`.
+- `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json`, `tsconfig.test.json`: strict project references.
+- `playwright.config.ts`: deterministic desktop/mobile Chromium projects with two workers and zero retries.
+- `scripts/smoke-built-artifact.ts`: dynamic hashed JS/CSS/Workbox discovery, non-HTML static asset validation, manifest/worker/icon checks, and byte-identical direct-route shell proof.
+- `vitest.config.ts`: client and Convex projects.
+- `.github/workflows/ci.yml`: Bun 1.3.11 frozen install, client/build checks, built-artifact smoke, Convex tests, Chromium installation, and Playwright journeys; no deployment credentials or deploy steps.
 
-## Performance Considerations
+Project type and lint errors are not ignored.
 
-### Pack List Performance
-- **Local Storage**: All data persisted locally using Zustand persistence
-- **Render Optimization**: Components use React.memo and useMemo for expensive calculations
-- **Lazy Loading**: Large components loaded on demand using React.lazy
-- **Virtual Scrolling**: Implemented for large lists (>100 items)
-- **Debounced Search**: Search input debounced to 300ms to prevent excessive filtering
-
-### Task Master Performance
-- **Model Limits**:
-  - Claude Sonnet: 120,000 tokens max
-  - Perplexity Sonar: 8,700 tokens max
-- **Rate Limits**: Respect provider-specific rate limits
-- **Caching**: Task analysis results cached locally
-- **Batch Operations**: Multiple task updates batched together
-
-### Memory Management
-```typescript
-// Performance monitoring thresholds
-const PERFORMANCE_THRESHOLDS = {
-  RENDER_TIME_WARNING: 16, // 16ms for 60fps
-  RENDER_TIME_ERROR: 33, // 33ms for 30fps
-  MEMORY_WARNING: 50 * 1024 * 1024, // 50MB
-  MEMORY_ERROR: 100 * 1024 * 1024, // 100MB
-} as const;
-```
-
----
-
-## Security
-
-### API Key Management
-```typescript
-// Task Master AI API keys (stored in environment variables)
-const API_KEYS = {
-  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-  PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY,
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-  // ... other provider keys
-};
-
-// Validation
-const validateApiKeys = () => {
-  const requiredKeys = ['ANTHROPIC_API_KEY']; // At least one required
-  const availableKeys = Object.entries(API_KEYS)
-    .filter(([_, value]) => value)
-    .map(([key, _]) => key);
-
-  if (availableKeys.length === 0) {
-    throw new Error('At least one AI provider API key must be configured');
-  }
-};
-```
-
-### Data Privacy
-```typescript
-// Pack List data privacy considerations
-interface PrivacySettings {
-  localStorageOnly: boolean; // All data stored locally
-  noCloudSync: boolean; // No cloud synchronization
-  anonymousUsage: boolean; // No user identification required
-  exportControl: boolean; // User controls data export
-}
-
-// Data sanitization for exports
-const sanitizeExportData = (data: ExportData): ExportData => {
-  return {
-    ...data,
-    user: data.user ? {
-      ...data.user,
-      email: undefined, // Remove sensitive data
-      id: 'anonymous',
-    } : null,
-  };
-};
-```
-
-### Input Validation
-```typescript
-// Validation schemas using Zod
-import { z } from 'zod';
-
-const TaskSchema = z.object({
-  title: z.string().min(1).max(200),
-  description: z.string().max(2000),
-  priority: z.enum(['low', 'medium', 'high']),
-  status: z.enum(['pending', 'in-progress', 'done', 'review', 'deferred', 'cancelled']),
-});
-
-const ListSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  tags: z.array(z.string()).max(10).optional(),
-});
-
-const ItemSchema = z.object({
-  name: z.string().min(1).max(100),
-  quantity: z.number().min(1).max(999),
-  priority: z.enum(['low', 'medium', 'high', 'essential']),
-});
-```
-
----
-
-## File Locations Reference
-
-### Task Master System Files
-- **Configuration**: `.taskmaster/config.json`
-- **Tasks Database**: `.taskmaster/tasks/tasks.json`
-- **Individual Tasks**: `.taskmaster/tasks/task-*.md`
-- **Documentation**: `.taskmaster/docs/`
-- **Reports**: `.taskmaster/reports/`
-- **Templates**: `.taskmaster/templates/`
-
-### Pack List Application Files
-- **Main Store**: `pack-list/src/store/usePackListStore.ts`
-- **Types**: `pack-list/src/types/index.ts`
-- **Constants**: `pack-list/src/constants/index.ts`
-- **Components**: `pack-list/src/components/`
-- **Hooks**: `pack-list/src/hooks/`
-- **Configuration**: `pack-list/next.config.ts`, `pack-list/components.json`
-
-### Claude Code Integration Files
-- **Commands**: `.claude/commands/tm/`
-- **Settings**: `.claude/settings.json`
-- **MCP Config**: `.mcp.json`
-- **Context**: `CLAUDE.md`
-
----
-
-*Last Updated: September 01, 2025*
-*This document contains comprehensive API documentation for task-master-init project*
-*Must be updated with every new API addition or change*
+_Last updated: July 14, 2026_

@@ -1,9 +1,9 @@
-"use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,21 +33,24 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, X } from "lucide-react";
 import { toast } from "sonner";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 const userEditSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   preferences: z.object({
     theme: z.enum(["light", "dark", "system"]),
-    defaultPriority: z.enum(["low", "medium", "high"]),
+    defaultPriority: z.enum(["low", "medium", "high", "essential"]),
     autoSave: z.boolean(),
   }),
 });
 
-type UserEditFormData = z.infer<typeof userEditSchema>;
+export type UserEditFormData = z.infer<typeof userEditSchema>;
+export type AdminUserUpdateResult = FunctionReturnType<
+  typeof api.users.updateUser
+>;
 
 interface User {
   _id: Id<"users">;
@@ -66,30 +69,52 @@ interface UserEditFormProps {
   user: User;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (updatedUser: AdminUserUpdateResult) => void;
+}
+
+function getUserEditFormValues(user: User): UserEditFormData {
+  return {
+    name: user.name,
+    email: user.email || "",
+    preferences: {
+      theme:
+        (user.preferences?.theme as UserEditFormData["preferences"]["theme"]) ||
+        "system",
+      defaultPriority:
+        (user.preferences
+          ?.defaultPriority as UserEditFormData["preferences"]["defaultPriority"]) ||
+        "medium",
+      autoSave: user.preferences?.autoSave ?? true,
+    },
+  };
 }
 
 export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFormProps) {
+  const { online } = useOnlineStatus();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const updateUser = useMutation(api.users.updateUser);
+  const userValues = useMemo(
+    () => getUserEditFormValues(user),
+    [user],
+  );
 
   const form = useForm<UserEditFormData>({
     resolver: zodResolver(userEditSchema),
-    defaultValues: {
-      name: user.name,
-      email: user.email || "",
-      preferences: {
-        theme: (user.preferences?.theme as "light" | "dark" | "system") || "system",
-        defaultPriority: (user.preferences?.defaultPriority as "low" | "medium" | "high") || "medium",
-        autoSave: user.preferences?.autoSave ?? true,
-      },
-    },
+    defaultValues: userValues,
   });
 
+  useEffect(() => {
+    form.reset(userValues);
+  }, [form, userValues]);
+
   const onSubmit = async (data: UserEditFormData) => {
+    if (!online) {
+      toast.error("Reconnect before saving changes.");
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await updateUser({
+      const updatedUser = await updateUser({
         userId: user._id,
         updates: {
           name: data.name,
@@ -99,7 +124,7 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
       });
 
       toast.success("User updated successfully");
-      onSuccess?.();
+      onSuccess?.(updatedUser);
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to update user:", error);
@@ -177,7 +202,7 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Theme Preference</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select theme" />
@@ -200,9 +225,9 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Default Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger aria-label="Default Priority">
                             <SelectValue placeholder="Select default priority" />
                           </SelectTrigger>
                         </FormControl>
@@ -210,6 +235,7 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
                           <SelectItem value="low">Low</SelectItem>
                           <SelectItem value="medium">Medium</SelectItem>
                           <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="essential">Essential</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -217,26 +243,6 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="preferences.autoSave"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Auto Save</FormLabel>
-                        <FormDescription>
-                          Automatically save changes as the user types
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
               </div>
 
               {/* User Info Display */}
@@ -255,6 +261,11 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
               </div>
             </div>
 
+            {!online ? (
+              <p id="edit-user-offline-reason" className="text-sm text-warning">
+                Reconnect to update this user.
+              </p>
+            ) : null}
             <DialogFooter>
               <Button
                 type="button"
@@ -265,7 +276,11 @@ export function UserEditForm({ user, open, onOpenChange, onSuccess }: UserEditFo
                 <X className="mr-2 h-4 w-4" />
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={isSubmitting || !online}
+                aria-describedby={!online ? "edit-user-offline-reason" : undefined}
+              >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

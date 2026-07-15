@@ -1,238 +1,232 @@
-"use client"
+import { useMemo, useState } from "react";
+import { Grid3x3, List as ListIcon, Package, SortAsc } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { useState, useMemo, useEffect } from "react";
-import { useConvexStore } from "@/hooks/use-convex-store";
-import { ListCard } from "./list-card";
-import { CreateListForm } from "./create-list-form";
-import { QuickStartTemplates } from "../templates/quick-start-templates";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { ImportDialog } from "@/components/export/import-dialog";
+import { PageHeader } from "@/components/layout/page-header";
+import { Section } from "@/components/layout/section";
 import { SearchBar } from "@/components/search/search-bar";
-import { ImportDialog } from "../export/import-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { QuickStartTemplates } from "@/components/templates/quick-start-templates";
 import { Button } from "@/components/ui/button";
-import { SortAsc, Grid3x3, List as ListIcon, Package } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { searchLists } from "@/lib/search-utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useLists } from "@/features/lists/hooks/use-lists";
+import { cn } from "@/lib/utils";
+import {
+  calculateListProgress,
+  filterAndSortLists,
+  type ListSort,
+  type ListStatus,
+} from "@/features/lists/list-model";
+import { CreateListForm } from "./create-list-form";
+import { ListCard } from "./list-card";
 
-type SortOption = "name" | "date" | "completion";
 type ViewMode = "grid" | "list";
 
 export function ListOverview() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { lists } = useConvexStore();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("date");
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { hasMore, lists, loadMore, loading } = useLists();
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<ListSort>("date");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [showTemplates, setShowTemplates] = useState(true);
+  const requestedStatus = searchParams.get("status");
+  const status: ListStatus =
+    requestedStatus === "active" || requestedStatus === "completed"
+      ? requestedStatus
+      : null;
+  const visibleLists = useMemo(
+    () => filterAndSortLists(lists ?? [], { status, search, sort }),
+    [lists, search, sort, status],
+  );
+  const allLists = lists ?? [];
+  const progressValues = allLists.map(calculateListProgress);
+  const totalItems = progressValues.reduce(
+    (total, progress) => total + progress.totalItems,
+    0,
+  );
+  const averageCompletion = progressValues.length
+    ? Math.round(
+        progressValues.reduce(
+          (total, progress) => total + progress.completionPercentage,
+          0,
+        ) / progressValues.length,
+      )
+    : 0;
 
-  // Get status filter from URL query parameters
-  const statusFilter = searchParams.get("status");
+  if (loading) {
+    return (
+      <p className="py-20 text-center text-muted-foreground">
+        Loading your packing lists…
+      </p>
+    );
+  }
 
-  // Filter and sort lists
-  const filteredAndSortedLists = useMemo(() => {
-    let filtered = lists.filter(list => !list.isTemplate);
-
-    // Apply status filter from URL
-    if (statusFilter) {
-      switch (statusFilter) {
-        case "active":
-          filtered = filtered.filter(list => !list.completedAt);
-          break;
-        case "completed":
-          filtered = filtered.filter(list => list.completedAt);
-          break;
-        case "archived":
-          // For now, archived lists are those marked as archived (future implementation)
-          filtered = filtered.filter(list => (list as any).archived === true);
-          break;
-      }
-    }
-
-    // Apply search filter using our search utility
-    if (searchQuery) {
-      filtered = searchLists(filtered, searchQuery);
-    }
-
-    // Apply sorting
-    const sorted = [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "date":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case "completion":
-          // TODO: Implement getListProgress for Convex
-          const statsA = { completionPercentage: 0 };
-          const statsB = { completionPercentage: 0 };
-          return (statsB?.completionPercentage || 0) - (statsA?.completionPercentage || 0);
-        default:
-          return 0;
-      }
-    });
-
-    return sorted;
-  }, [lists, searchQuery, sortBy, statusFilter]);
-
-  const handleListClick = (listId: string) => {
-    router.push(`/lists/${listId}`);
-  };
-
-  const handleListEdit = (listId: string) => {
-    router.push(`/lists/${listId}/edit`);
-  };
-
-  const handleCreateSuccess = (listId: string) => {
-    router.push(`/lists/${listId}`);
-  };
+  const collectionTitle =
+    status === "active"
+      ? "Active lists"
+      : status === "completed"
+        ? "Completed lists"
+        : "Packing lists";
+  const stats = [
+    { label: "Packing lists", value: allLists.length },
+    {
+      label: "Completed",
+      value: allLists.filter((list) => list.completedAt).length,
+    },
+    { label: "Items", value: totalItems },
+    { label: "Average packed", value: `${averageCompletion}%` },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {statusFilter === "active" && "Active Packing Lists"}
-            {statusFilter === "completed" && "Completed Packing Lists"}
-            {statusFilter === "archived" && "Archived Packing Lists"}
-            {!statusFilter && "My Packing Lists"}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {statusFilter === "active" && "Lists you're currently working on"}
-            {statusFilter === "completed" && "Lists you've finished packing"}
-            {statusFilter === "archived" && "Your archived packing lists"}
-            {!statusFilter && "Manage and organize all your packing lists in one place"}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <ImportDialog />
-          <CreateListForm onSuccess={handleCreateSuccess} />
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        title="My packing lists"
+        description="Keep every trip clear, from the first idea to the final check."
+        spine="none"
+      />
 
-      {/* Quick Start Templates - Show when no lists or at the top */}
-      {(lists.filter(l => !l.isTemplate).length === 0 || showTemplates) && (
-        <QuickStartTemplates
-          className="mb-6"
-          maxTemplates={lists.filter(l => !l.isTemplate).length === 0 ? 6 : 3}
-        />
-      )}
+      <QuickStartTemplates className="mb-8" maxTemplates={3} />
 
-      {/* Filters and Controls */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <SearchBar
-          placeholder="Search lists..."
-          onSearch={setSearchQuery}
-          className="flex-1 max-w-sm"
-        />
-        
-        <div className="flex items-center gap-2">
-          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-            <SelectTrigger className="w-[140px]">
-              <SortAsc className="mr-2 h-4 w-4" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="date">Date Created</SelectItem>
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="completion">Completion</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div className="flex gap-1 border rounded-md p-1">
-            <Button
-              size="sm"
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              className="h-8 w-8 p-0"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              className="h-8 w-8 p-0"
-              onClick={() => setViewMode("list")}
-            >
-              <ListIcon className="h-4 w-4" />
-            </Button>
+      <dl
+        aria-label="Packing list statistics"
+        className="mb-8 grid grid-cols-2 overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] sm:grid-cols-4"
+        role="group"
+      >
+        {stats.map(({ label, value }, index) => (
+          <div
+            key={label}
+            className={cn(
+              "border-border px-5 py-5 sm:border-r sm:border-b-0",
+              index < 2 && "border-b",
+              index % 2 === 0 && "border-r",
+              index === stats.length - 1 && "sm:border-r-0",
+            )}
+          >
+            <dt className="text-sm font-medium text-muted-foreground">
+              {label}
+            </dt>
+            <dd className="mt-1 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
+              {value}
+            </dd>
           </div>
-        </div>
-      </div>
+        ))}
+      </dl>
 
-      {/* Lists Display */}
-      {filteredAndSortedLists.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Package className="h-16 w-16 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">
-            {searchQuery ? "No lists found" : "No packing lists yet"}
-          </h2>
-          <p className="text-muted-foreground mb-6 max-w-md">
-            {searchQuery 
-              ? "Try adjusting your search query" 
-              : "Create your first packing list to get started organizing your trips"}
-          </p>
-          {!searchQuery && <CreateListForm onSuccess={handleCreateSuccess} />}
-        </div>
-      ) : (
-        <div className={
-          viewMode === "grid" 
-            ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            : "space-y-4"
-        }>
-          {filteredAndSortedLists.map((list: any) => (
-            <ListCard
-              key={list._id}
-              list={list}
-              onClick={() => handleListClick(list._id)}
-              onEdit={() => handleListEdit(list._id)}
+      <Section
+        title={collectionTitle}
+        description={`${visibleLists.length} loaded ${visibleLists.length === 1 ? "list" : "lists"} in this view${hasMore ? "; more lists are available" : ""}.`}
+      >
+        <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-card)] lg:flex-row lg:items-center">
+          <SearchBar
+            placeholder="Search packing lists…"
+            onSearch={setSearch}
+            className="min-w-0 flex-1"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={sort}
+              onValueChange={(value: ListSort) => setSort(value)}
+            >
+              <SelectTrigger
+                className="w-full sm:w-[168px]"
+                aria-label="Sort packing lists"
+              >
+                <SortAsc aria-hidden="true" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Date created</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="completion">Completion</SelectItem>
+              </SelectContent>
+            </Select>
+            <div
+              className="flex rounded-xl border bg-surface-muted p-0.5"
+              role="group"
+              aria-label="List layout"
+            >
+              <Button
+                size="icon"
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                onClick={() => setViewMode("grid")}
+                aria-label="Grid view"
+                aria-pressed={viewMode === "grid"}
+              >
+                <Grid3x3 />
+              </Button>
+              <Button
+                size="icon"
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                onClick={() => setViewMode("list")}
+                aria-label="List view"
+                aria-pressed={viewMode === "list"}
+              >
+                <ListIcon />
+              </Button>
+            </div>
+            <ImportDialog />
+            <CreateListForm
+              onSuccess={(listId) => navigate(`/lists/${listId}`)}
             />
-          ))}
-        </div>
-      )}
-
-      {/* Stats Summary */}
-      {lists.length > 0 && (
-        <div className="mt-8 p-4 bg-muted/50 rounded-lg">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold">{lists.filter(l => !l.isTemplate).length}</div>
-              <div className="text-sm text-muted-foreground">Active Lists</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">
-                {lists.filter(l => {
-                  // TODO: Implement getListProgress(l.id);
-                  const stats = null;
-                  return stats?.completionPercentage === 100;
-                }).length}
-              </div>
-              <div className="text-sm text-muted-foreground">Completed</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">
-                {lists.reduce((total, list) => {
-                  // TODO: Implement getListProgress(list.id);
-                  const stats = null;
-                  return total + (stats?.totalItems || 0);
-                }, 0)}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Items</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">
-                {Math.round(
-                  lists.reduce((total, list) => {
-                    // TODO: Implement getListProgress(list.id);
-                    const stats = null;
-                    return total + (stats?.completionPercentage || 0);
-                  }, 0) / (lists.length || 1)
-                )}%
-              </div>
-              <div className="text-sm text-muted-foreground">Avg. Completion</div>
-            </div>
           </div>
         </div>
-      )}
+
+        {visibleLists.length === 0 ? (
+          <EmptyState
+            icon={Package}
+            title="No packing lists found"
+            description={
+              search
+                ? "No match exists in the loaded lists yet. Load more or try a different trip name."
+                : "Create a list or start from a useful template."
+            }
+            primaryAction={
+              !search ? (
+                <CreateListForm
+                  onSuccess={(listId) => navigate(`/lists/${listId}`)}
+                />
+              ) : undefined
+            }
+            secondaryAction={
+              !search ? (
+                <Button variant="outline" onClick={() => navigate("/templates")}>
+                  Browse templates
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                : "space-y-3"
+            }
+          >
+            {visibleLists.map((list) => (
+              <ListCard
+                key={list._id}
+                list={list}
+                onEdit={() => navigate(`/lists/${list._id}/edit`)}
+              />
+            ))}
+          </div>
+        )}
+        {hasMore ? (
+          <div className="mt-6 flex justify-center">
+            <Button variant="outline" onClick={loadMore}>
+              Load more lists
+            </Button>
+          </div>
+        ) : null}
+      </Section>
     </div>
   );
 }

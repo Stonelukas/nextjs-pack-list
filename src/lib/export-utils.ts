@@ -1,326 +1,251 @@
-import { List, Category, Item } from '@/types';
-import { lazyImportJsPDF, lazyImportHtmlToImage, lazyImportQRCode, lazyImportFileSaver } from './lazy-imports';
-import { AppError, ErrorType, safeAsync, logError, withRetry } from './error-utils';
+import type { Id } from "../../convex/_generated/dataModel";
+import {
+  getImportPayloadLimitError,
+  MAX_IMPORT_CATEGORIES,
+  MAX_IMPORT_ITEMS_PER_CATEGORY,
+  MAX_IMPORT_JSON_BYTES,
+  utf8ByteLength,
+} from "../../convex/lib/import_limits";
+import { z } from "zod";
 
-export const exportAsPDF = async (
-  list: List,
-  categories: Category[],
-  items: Item[],
-  elementRef?: React.RefObject<HTMLElement>
-) => {
-  const jsPDF = await lazyImportJsPDF();
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = pdf.internal.pageSize.getWidth();
+import type { CategoryDocument, ItemDocument, ListDocument } from "@/features/lists/types";
+import {
+  lazyImportFileSaver,
+  lazyImportHtmlToImage,
+  lazyImportJsPDF,
+  lazyImportQRCode,
+} from "./lazy-imports";
+
+function fileBase(name: string) {
+  return name.replace(/[^a-z0-9]/gi, "_").toLocaleLowerCase();
+}
+
+function itemsForCategory(category: CategoryDocument, items: ItemDocument[]) {
+  return items.filter((item) => item.categoryId === category._id);
+}
+
+export async function exportAsPDF(
+  list: ListDocument,
+  categories: CategoryDocument[],
+  items: ItemDocument[],
+) {
+  const JsPDF = await lazyImportJsPDF();
+  const pdf = new JsPDF("p", "mm", "a4");
   const pageHeight = pdf.internal.pageSize.getHeight();
+  const pageWidth = pdf.internal.pageSize.getWidth();
   const margin = 20;
-  let yPosition = margin;
+  let y = margin;
 
-  // Title
   pdf.setFontSize(24);
-  pdf.text(list.name, margin, yPosition);
-  yPosition += 15;
-
-  // Description
+  pdf.text(list.name, margin, y);
+  y += 12;
   if (list.description) {
     pdf.setFontSize(12);
-    pdf.setTextColor(100);
-    const lines = pdf.splitTextToSize(list.description, pageWidth - 2 * margin);
-    pdf.text(lines, margin, yPosition);
-    yPosition += lines.length * 5 + 10;
-    pdf.setTextColor(0);
+    const lines = pdf.splitTextToSize(list.description, pageWidth - margin * 2);
+    pdf.text(lines, margin, y);
+    y += lines.length * 5 + 8;
   }
 
-  // Statistics
-  const totalItems = items.length;
-  const packedItems = items.filter(item => item.packed).length;
-  const completionPercentage = totalItems > 0 
-    ? Math.round((packedItems / totalItems) * 100) 
-    : 0;
-
+  const packed = items.filter((item) => item.packed).length;
+  const progress = items.length ? Math.round((packed / items.length) * 100) : 0;
   pdf.setFontSize(10);
-  pdf.text(`Progress: ${packedItems}/${totalItems} items packed (${completionPercentage}%)`, margin, yPosition);
-  yPosition += 10;
+  pdf.text(`Progress: ${packed}/${items.length} items packed (${progress}%)`, margin, y);
+  y += 10;
 
-  // Categories and items
-  categories.forEach(category => {
-    const categoryItems = items.filter(item => item.categoryId === category.id);
-    
-    if (categoryItems.length === 0) return;
-
-    // Check if we need a new page
-    if (yPosition > pageHeight - 30) {
+  for (const category of categories) {
+    const categoryItems = itemsForCategory(category, items);
+    if (!categoryItems.length) continue;
+    if (y > pageHeight - 30) {
       pdf.addPage();
-      yPosition = margin;
+      y = margin;
     }
-
-    // Category name
+    pdf.setFont("helvetica", "bold");
     pdf.setFontSize(14);
-    pdf.setFont(undefined, 'bold');
-    pdf.text(category.name, margin, yPosition);
-    yPosition += 7;
-    pdf.setFont(undefined, 'normal');
-
-    // Items
+    pdf.text(category.name, margin, y);
+    y += 7;
+    pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    categoryItems.forEach(item => {
-      if (yPosition > pageHeight - 20) {
+    for (const item of categoryItems) {
+      if (y > pageHeight - 20) {
         pdf.addPage();
-        yPosition = margin;
+        y = margin;
       }
-
-      const checkbox = item.packed ? '☑' : '☐';
-      const quantity = item.quantity > 1 ? `${item.quantity}x ` : '';
-      const priority = item.priority !== 'nice-to-have' ? ` (${item.priority})` : '';
-      const text = `${checkbox} ${quantity}${item.name}${priority}`;
-      
-      pdf.text(text, margin + 5, yPosition);
-      yPosition += 5;
-
-      if (item.description) {
-        pdf.setFontSize(8);
-        pdf.setTextColor(100);
-        const descLines = pdf.splitTextToSize(item.description, pageWidth - 2 * margin - 10);
-        pdf.text(descLines, margin + 10, yPosition);
-        yPosition += descLines.length * 4 + 2;
-        pdf.setTextColor(0);
-        pdf.setFontSize(10);
-      }
-    });
-
-    yPosition += 5;
-  });
-
-  // Footer
-  pdf.setFontSize(8);
-  pdf.setTextColor(150);
-  const date = new Date().toLocaleDateString();
-  pdf.text(`Generated on ${date}`, margin, pageHeight - 10);
-
-  pdf.save(`${list.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_packing_list.pdf`);
-};
-
-export const exportAsText = async (
-  list: List,
-  categories: Category[],
-  items: Item[]
-) => {
-  let content = `${list.name}\n${'='.repeat(list.name.length)}\n\n`;
-  
-  if (list.description) {
-    content += `${list.description}\n\n`;
+      pdf.text(
+        `${item.packed ? "[x]" : "[ ]"} ${item.quantity > 1 ? `${item.quantity}x ` : ""}${item.name} (${item.priority})`,
+        margin + 5,
+        y,
+      );
+      y += 5;
+    }
+    y += 4;
   }
 
-  // Statistics
-  const totalItems = items.length;
-  const packedItems = items.filter(item => item.packed).length;
-  const completionPercentage = totalItems > 0 
-    ? Math.round((packedItems / totalItems) * 100) 
-    : 0;
+  pdf.save(`${fileBase(list.name)}_packing_list.pdf`);
+}
 
-  content += `Progress: ${packedItems}/${totalItems} items packed (${completionPercentage}%)\n`;
-  content += `Generated: ${new Date().toLocaleString()}\n\n`;
-  
-  categories.forEach(category => {
-    const categoryItems = items.filter(item => item.categoryId === category.id);
-    
-    if (categoryItems.length === 0) return;
-
+export async function exportAsText(
+  list: ListDocument,
+  categories: CategoryDocument[],
+  items: ItemDocument[],
+) {
+  let content = `${list.name}\n${"=".repeat(list.name.length)}\n\n`;
+  if (list.description) content += `${list.description}\n\n`;
+  for (const category of categories) {
+    const categoryItems = itemsForCategory(category, items);
+    if (!categoryItems.length) continue;
     content += `## ${category.name}\n`;
-    
-    categoryItems.forEach(item => {
-      const status = item.packed ? '[x]' : '[ ]';
-      const quantity = item.quantity > 1 ? `${item.quantity}x ` : '';
-      const priority = item.priority !== 'nice-to-have' ? ` (${item.priority})` : '';
-      content += `${status} ${quantity}${item.name}${priority}\n`;
-      
-      if (item.description) {
-        content += `    ${item.description}\n`;
-      }
-    });
-    
-    content += '\n';
-  });
-  
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    for (const item of categoryItems) {
+      content += `${item.packed ? "[x]" : "[ ]"} ${item.quantity > 1 ? `${item.quantity}x ` : ""}${item.name} (${item.priority})\n`;
+      if (item.description) content += `    ${item.description}\n`;
+    }
+    content += "\n";
+  }
   const saveAs = await lazyImportFileSaver();
-  saveAs(blob, `${list.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_packing_list.txt`);
-};
+  saveAs(new Blob([content], { type: "text/plain;charset=utf-8" }), `${fileBase(list.name)}_packing_list.txt`);
+}
 
-export const exportAsCSV = async (
-  list: List,
-  categories: Category[],
-  items: Item[]
-) => {
-  const headers = ['Category', 'Item', 'Quantity', 'Priority', 'Packed', 'Description'];
-  const rows = [headers];
+export function escapeCsvCell(cell: string): string {
+  let prefixEnd = 0;
+  while (prefixEnd < cell.length && cell.charCodeAt(prefixEnd) <= 0x20) {
+    prefixEnd += 1;
+  }
+  const neutralized = "=+-@".includes(cell[prefixEnd] ?? "")
+    ? `'${cell}`
+    : cell;
+  return /[,"\n\r]/.test(neutralized)
+    ? `"${neutralized.replace(/"/g, '""')}"`
+    : neutralized;
+}
 
-  categories.forEach(category => {
-    const categoryItems = items.filter(item => item.categoryId === category.id);
-    
-    categoryItems.forEach(item => {
-      rows.push([
-        category.name,
-        item.name,
-        item.quantity.toString(),
-        item.priority,
-        item.packed ? 'Yes' : 'No',
-        item.description || ''
-      ]);
-    });
-  });
-
-  const csvContent = rows.map(row => 
-    row.map(cell => {
-      // Escape quotes and wrap in quotes if contains comma or newline
-      const escaped = cell.replace(/"/g, '""');
-      return /[,"\n]/.test(escaped) ? `"${escaped}"` : escaped;
-    }).join(',')
-  ).join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+export async function exportAsCSV(
+  list: ListDocument,
+  categories: CategoryDocument[],
+  items: ItemDocument[],
+) {
+  const rows = [["Category", "Item", "Quantity", "Priority", "Packed", "Description"]];
+  for (const category of categories) {
+    for (const item of itemsForCategory(category, items)) {
+      rows.push([category.name, item.name, String(item.quantity), item.priority, item.packed ? "Yes" : "No", item.description ?? ""]);
+    }
+  }
+  const content = rows
+    .map((row) => row.map(escapeCsvCell).join(","))
+    .join("\n");
   const saveAs = await lazyImportFileSaver();
-  saveAs(blob, `${list.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_packing_list.csv`);
-};
+  saveAs(new Blob([content], { type: "text/csv;charset=utf-8" }), `${fileBase(list.name)}_packing_list.csv`);
+}
 
-export const exportAsJSON = async (
-  list: List,
-  categories: Category[],
-  items: Item[]
-) => {
-  const exportData = {
-    list: {
-      name: list.name,
-      description: list.description,
-      tripType: list.tripType,
-      tags: list.tags,
-      createdAt: list.createdAt,
-      updatedAt: list.updatedAt
-    },
-    categories: categories.map(category => ({
+export async function exportAsJSON(
+  list: ListDocument,
+  categories: CategoryDocument[],
+  items: ItemDocument[],
+) {
+  const payload = {
+    version: 1,
+    list: { name: list.name, description: list.description, tags: list.tags },
+    categories: categories.map((category) => ({
       name: category.name,
+      color: category.color,
       icon: category.icon,
-      items: items
-        .filter(item => item.categoryId === category.id)
-        .map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          priority: item.priority,
-          packed: item.packed,
-          description: item.description,
-          weight: item.weight,
-          weightUnit: item.weightUnit
-        }))
+      items: itemsForCategory(category, items).map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        priority: item.priority,
+        packed: item.packed,
+        description: item.description,
+        notes: item.notes,
+        weight: item.weight,
+        tags: item.tags,
+      })),
     })),
-    statistics: {
-      totalItems: items.length,
-      packedItems: items.filter(item => item.packed).length,
-      completionPercentage: items.length > 0 
-        ? Math.round((items.filter(item => item.packed).length / items.length) * 100) 
-        : 0,
-      exportedAt: new Date().toISOString()
-    }
+    exportedAt: new Date().toISOString(),
   };
-
-  const jsonString = JSON.stringify(exportData, null, 2);
-  const blob = new Blob([jsonString], { type: 'application/json' });
   const saveAs = await lazyImportFileSaver();
-  saveAs(blob, `${list.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_packing_list.json`);
-};
+  saveAs(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), `${fileBase(list.name)}_packing_list.json`);
+}
 
-export const generateShareableLink = async (listId: string): Promise<string> => {
-  // In a real app, this would make an API call to generate a shareable link
-  // For now, we'll generate a local URL
-  const baseUrl = window.location.origin;
-  const shareUrl = `${baseUrl}/shared/${listId}`;
-  return shareUrl;
-};
+export async function exportAsImage(list: ListDocument, element: HTMLElement) {
+  const htmlToImage = await lazyImportHtmlToImage();
+  const dataUrl = await htmlToImage.toPng(element, { cacheBust: true, pixelRatio: 2 });
+  const anchor = document.createElement("a");
+  anchor.href = dataUrl;
+  anchor.download = `${fileBase(list.name)}_packing_list.png`;
+  anchor.click();
+}
 
-export const generateQRCode = async (text: string): Promise<string> => {
-  const result = await safeAsync(async () => {
-    const QRCode = await lazyImportQRCode();
-    return await QRCode.toDataURL(text, {
-      width: 256,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
-  }, ErrorType.UNKNOWN);
+export function generateOwnerListLink(listId: Id<"lists">) {
+  return `${window.location.origin}/lists/${listId}`;
+}
 
-  if (!result.success) {
-    const error = new AppError(
-      'Failed to generate QR code',
-      ErrorType.UNKNOWN,
-      { text, originalError: result.error.message }
+export async function generateQRCode(text: string) {
+  const QRCode = await lazyImportQRCode();
+  return QRCode.toDataURL(text, { width: 256, margin: 2, color: { dark: "#000000", light: "#FFFFFF" } });
+}
+
+export async function copyToClipboard(text: string) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  document.body.appendChild(textArea);
+  textArea.select();
+  const success = document.execCommand("copy");
+  textArea.remove();
+  return success;
+}
+
+const importItemSchema = z.object({
+  name: z.string().trim().min(1, "Item name is required"),
+  quantity: z.number().int().positive("Item quantity must be a positive integer"),
+  priority: z.enum(["low", "medium", "high", "essential"]),
+  packed: z.boolean().optional(),
+  description: z.string().optional(),
+  notes: z.string().optional(),
+  weight: z.number().finite().nonnegative().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+const importPayloadSchema = z.object({
+  version: z.literal(1),
+  list: z.object({
+    name: z.string().trim().min(1, "List name is required"),
+    description: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+  }),
+  categories: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1, "Category name is required"),
+        color: z.string().optional(),
+        icon: z.string().optional(),
+        items: z
+          .array(importItemSchema)
+          .max(
+            MAX_IMPORT_ITEMS_PER_CATEGORY,
+            `A category may contain at most ${MAX_IMPORT_ITEMS_PER_CATEGORY} items`,
+          ),
+      }),
+    )
+    .max(
+      MAX_IMPORT_CATEGORIES,
+      `An import may contain at most ${MAX_IMPORT_CATEGORIES} categories`,
+    ),
+});
+
+export type ImportedListPayload = z.infer<typeof importPayloadSchema>;
+
+export function importFromJSON(jsonString: string): ImportedListPayload {
+  if (utf8ByteLength(jsonString) > MAX_IMPORT_JSON_BYTES) {
+    throw new Error(
+      `Import files must be ${MAX_IMPORT_JSON_BYTES} bytes or smaller`,
     );
-    logError(error);
-    throw error;
   }
-
-  return result.data;
-};
-
-export const copyToClipboard = async (text: string): Promise<boolean> => {
-  const result = await safeAsync(async () => {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } else {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      const success = document.execCommand('copy');
-      textArea.remove();
-      return success;
-    }
-  }, ErrorType.UNKNOWN);
-
-  if (!result.success) {
-    logError(new AppError(
-      'Failed to copy to clipboard',
-      ErrorType.UNKNOWN,
-      { textLength: text.length, originalError: result.error.message }
-    ));
-    return false;
-  }
-
-  return result.data;
-};
-
-export const importFromJSON = (jsonString: string): {
-  list: Partial<List>;
-  categories: Array<Partial<Category> & { items: Array<Partial<Item>> }>;
-} => {
-  const result = safeSync(() => {
-    const data = JSON.parse(jsonString);
-    
-    // Validate the structure
-    if (!data.list || !data.categories) {
-      throw new AppError('Invalid JSON structure', ErrorType.VALIDATION);
-    }
-
-    return {
-      list: data.list,
-      categories: data.categories
-    };
-  }, ErrorType.VALIDATION);
-
-  if (!result.success) {
-    const error = new AppError(
-      'Failed to import JSON file',
-      ErrorType.VALIDATION,
-      { originalError: result.error.message }
-    );
-    logError(error);
-    throw error;
-  }
-
-  return result.data;
-};
+  const payload = importPayloadSchema.parse(JSON.parse(jsonString) as unknown);
+  const structuralLimitError = getImportPayloadLimitError(payload);
+  if (structuralLimitError) throw new Error(structuralLimitError);
+  return payload;
+}

@@ -1,12 +1,12 @@
-"use client";
 
-import { useState, useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useMemo, useState } from "react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -28,9 +28,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   MoreHorizontal,
   Search,
-  Users,
-  UserPlus,
-  Calendar,
   Mail,
   Shield,
   Trash2,
@@ -38,7 +35,8 @@ import {
   Eye,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { toast } from "sonner";
+
+const USER_PAGE_SIZE = 50;
 
 interface User {
   _id: Id<"users">;
@@ -46,6 +44,7 @@ interface User {
   name: string;
   email?: string;
   imageUrl?: string;
+  role?: "user" | "admin";
   createdAt?: number;
   updatedAt?: number;
   preferences?: {
@@ -63,14 +62,15 @@ interface UserTableProps {
 
 export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedUsers, setSelectedUsers] = useState<Set<Id<"users">>>(new Set());
 
-  // Fetch all users
-  const usersResult = useQuery(api.users.getAllUsers, {});
-  const userStats = useQuery(api.users.getUserStats, {});
-
-  const users = usersResult?.page || [];
-  const isLoading = usersResult === undefined;
+  const currentUser = useQuery(api.users.getCurrentUser, {});
+  const { results: users, status, loadMore } = usePaginatedQuery(
+    api.users.getAllUsers,
+    {},
+    { initialNumItems: USER_PAGE_SIZE },
+  );
+  const isLoading = status === "LoadingFirstPage";
+  const hasMore = status === "CanLoadMore" || status === "LoadingMore";
 
   // Filter users based on search term
   const filteredUsers = useMemo(() => {
@@ -91,9 +91,7 @@ export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableP
         onUserEdit?.(user);
         break;
       case "delete":
-        if (confirm(`Are you sure you want to delete user "${user.name}"?`)) {
-          onUserDelete?.(user);
-        }
+        onUserDelete?.(user);
         break;
       default:
         break;
@@ -109,19 +107,14 @@ export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableP
       .slice(0, 2);
   };
 
-  const getUserRole = (user: User) => {
-    // Simple role detection based on email
-    if (user.email?.includes("admin") || user.email === "stonelukas@pm.me") {
-      return "admin";
-    }
-    return "user";
-  };
+  const getUserRole = (user: User) =>
+    user.role === "admin" ? "admin" : "user";
 
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>User Management</CardTitle>
+          <CardTitle as="h2">User Management</CardTitle>
           <CardDescription>Loading users...</CardDescription>
         </CardHeader>
         <CardContent>
@@ -138,21 +131,23 @@ export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableP
       {/* Search and Actions */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div data-user-table-toolbar className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Users</CardTitle>
+              <CardTitle as="h2">Users</CardTitle>
               <CardDescription>
                 Manage user accounts and permissions
               </CardDescription>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="relative">
+            <div className="flex w-full items-center sm:w-auto">
+              <div className="relative w-full sm:w-[300px]">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
+                  type="search"
+                  aria-label="Search users"
                   placeholder="Search users..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-[300px]"
+                  className="w-full pl-8 sm:w-[300px]"
                 />
               </div>
             </div>
@@ -160,7 +155,8 @@ export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableP
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
-            <Table>
+            <Table aria-label="User accounts">
+              <TableCaption className="sr-only">Manage user accounts and permissions</TableCaption>
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
@@ -179,9 +175,12 @@ export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableP
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUsers.map((user) => (
+                  filteredUsers.map((user) => {
+                    const isCurrentUser = currentUser?._id === user._id;
+                    const deleteDisabled = !currentUser || isCurrentUser;
+                    return (
                     <TableRow key={user._id}>
-                      <TableCell>
+                      <TableHead scope="row" className="h-auto py-4 text-foreground">
                         <div className="flex items-center space-x-3">
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={user.imageUrl} alt={user.name} />
@@ -194,7 +193,7 @@ export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableP
                             </div>
                           </div>
                         </div>
-                      </TableCell>
+                      </TableHead>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Mail className="h-4 w-4 text-muted-foreground" />
@@ -238,19 +237,36 @@ export function UserTable({ onUserSelect, onUserEdit, onUserDelete }: UserTableP
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleUserAction("delete", user)}
+                              disabled={deleteDisabled}
                               className="text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete User
+                              {isCurrentUser ? "Delete current account" : "Delete User"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
+          </div>
+          <div className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              {users.length} users loaded. Search filters the users loaded so far.
+            </p>
+            {hasMore ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => loadMore(USER_PAGE_SIZE)}
+                disabled={status === "LoadingMore"}
+              >
+                {status === "LoadingMore" ? "Loading more users…" : "Load more users"}
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>

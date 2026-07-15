@@ -1,21 +1,7 @@
-"use client";
 
 import { useState } from "react";
 import { ModerationQueue } from "./moderation-queue";
-import { ContentPreview } from "./content-preview";
-
-interface ModerationItem {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  content: any;
-  author: string;
-  authorId: string | null;
-  createdAt: number;
-  status: string;
-  flaggedReason: string;
-}
+import { ContentPreview, type ModerationItem } from "./content-preview";
 
 export function ContentModeration() {
   const [selectedItem, setSelectedItem] = useState<ModerationItem | null>(null);

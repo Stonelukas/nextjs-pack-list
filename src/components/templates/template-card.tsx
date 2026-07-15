@@ -1,26 +1,22 @@
-"use client"
+import { Clock, Eye, Layers, Package, Plus, Sparkles, Users } from "lucide-react";
 
-import { Template, TemplateCategory } from "@/types";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Eye, 
-  Plus, 
-  Clock, 
-  Users, 
-  Layers, 
-  Package,
-  Sparkles,
-  Calendar,
-  Target
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import type { TemplateSummary } from "@/features/templates/hooks/use-templates";
 import { cn } from "@/lib/utils";
 
 interface TemplateCardProps {
-  template: Template;
-  onPreview: (template: Template) => void;
-  onUse: (template: Template) => void;
+  template: TemplateSummary;
+  onPreview: (template: TemplateSummary) => void;
+  onUse: (template: TemplateSummary) => void;
   className?: string;
 }
 
@@ -28,158 +24,104 @@ export function TemplateCard({
   template,
   onPreview,
   onUse,
-  className
+  className,
 }: TemplateCardProps) {
-  const getCategoryColor = (tag: string) => {
-    switch (tag) {
-      case TemplateCategory.TRAVEL:
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case TemplateCategory.OUTDOOR:
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case TemplateCategory.EVENTS:
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-      case TemplateCategory.SEASONAL:
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
-      case TemplateCategory.BUSINESS:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-      case TemplateCategory.SPORTS:
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      case TemplateCategory.EMERGENCY:
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-    }
-  };
-
-  const getDifficultyColor = (difficulty?: string) => {
-    switch (difficulty) {
-      case 'beginner':
-        return "text-green-600 dark:text-green-400";
-      case 'intermediate':
-        return "text-yellow-600 dark:text-yellow-400";
-      case 'advanced':
-        return "text-red-600 dark:text-red-400";
-      default:
-        return "text-gray-600 dark:text-gray-400";
-    }
-  };
-
-  const getSeasonIcon = (season?: string) => {
-    switch (season) {
-      case 'spring':
-        return "🌸";
-      case 'summer':
-        return "☀️";
-      case 'fall':
-        return "🍂";
-      case 'winter':
-        return "❄️";
-      default:
-        return "📅";
-    }
-  };
-
-  // Calculate total items in template
-  const totalItems = template.categories.reduce((sum, cat) => sum + cat.items.length, 0);
-
   return (
-    <Card className={cn("hover:shadow-lg transition-shadow", className)}>
+    <Card
+      data-testid="template-card"
+      className={cn(
+        "h-full overflow-hidden transition-[border-color] duration-150 hover:border-primary",
+        className,
+      )}
+    >
       <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="space-y-1 flex-1">
-            <CardTitle className="flex items-center gap-2">
-              <span className="text-2xl">{template.icon || "📦"}</span>
-              <span>{template.name}</span>
-            </CardTitle>
-            <CardDescription className="line-clamp-2">
+        <div className="flex min-h-16 items-start gap-3">
+          <div
+            data-testid="template-icon"
+            aria-hidden="true"
+            className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xl leading-none"
+          >
+            {template.icon ? (
+              <span>{template.icon}</span>
+            ) : (
+              <Package
+                data-testid="template-icon-fallback"
+                className="size-5 text-muted-foreground"
+              />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle as="h3" className="pt-0.5 text-base leading-tight">
+                {template.name}
+              </CardTitle>
+              {template.isPublic ? (
+                <Badge variant="secondary" className="shrink-0">
+                  <Sparkles className="mr-1 h-3 w-3" aria-hidden="true" />
+                  Public
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="shrink-0">
+                  Private
+                </Badge>
+              )}
+            </div>
+            <CardDescription className="mt-1 min-h-10 line-clamp-2">
               {template.description}
             </CardDescription>
           </div>
-          {template.isPublic && (
-            <Badge variant="secondary" className="ml-2">
-              <Sparkles className="h-3 w-3 mr-1" />
-              Featured
-            </Badge>
-          )}
         </div>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1">
-          {template.tags.map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className={cn("text-xs", getCategoryColor(tag))}
-            >
-              {tag.charAt(0).toUpperCase() + tag.slice(1)}
+
+      <CardContent className="flex flex-1 flex-col gap-4">
+        <div className="flex min-h-6 flex-wrap gap-1">
+          {(template.tags ?? []).map((tag) => (
+            <Badge key={tag} variant="secondary">
+              {tag}
             </Badge>
           ))}
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Layers className="h-4 w-4" />
-            <span>{template.categories.length} categories</span>
-          </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Package className="h-4 w-4" />
-            <span>{totalItems} items</span>
-          </div>
-          {template.duration && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{template.duration}</span>
-            </div>
-          )}
-          {template.usageCount > 0 && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Users className="h-4 w-4" />
-              <span>{template.usageCount} uses</span>
-            </div>
-          )}
-        </div>
-
-        {/* Additional Info */}
-        <div className="flex items-center gap-4 text-sm">
-          {template.difficulty && (
-            <div className="flex items-center gap-1">
-              <Target className={cn("h-4 w-4", getDifficultyColor(template.difficulty))} />
-              <span className={getDifficultyColor(template.difficulty)}>
-                {template.difficulty.charAt(0).toUpperCase() + template.difficulty.slice(1)}
-              </span>
-            </div>
-          )}
-          {template.season && template.season !== 'all' && (
-            <div className="flex items-center gap-1">
-              <span>{getSeasonIcon(template.season)}</span>
-              <span className="text-muted-foreground">
-                {template.season.charAt(0).toUpperCase() + template.season.slice(1)}
-              </span>
-            </div>
-          )}
+        <div className="grid min-h-14 grid-cols-2 content-start gap-2 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Layers className="h-4 w-4" aria-hidden="true" />
+            {template.categoryCount} categories
+          </span>
+          <span className="flex items-center gap-1">
+            <Package className="h-4 w-4" aria-hidden="true" />
+            {template.itemCount} items
+          </span>
+          {template.duration ? (
+            <span className="flex items-center gap-1">
+              <Clock className="h-4 w-4" aria-hidden="true" />
+              {template.duration}
+            </span>
+          ) : null}
+          {template.usageCount ? (
+            <span className="flex items-center gap-1">
+              <Users className="h-4 w-4" aria-hidden="true" />
+              {template.usageCount} uses
+            </span>
+          ) : null}
         </div>
       </CardContent>
 
-      <CardFooter className="gap-2">
+      <CardFooter className="mt-auto gap-2 border-t pt-4">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onPreview(template)}
           className="flex-1"
+          onClick={() => onPreview(template)}
         >
-          <Eye className="h-4 w-4 mr-1" />
+          <Eye className="mr-1 h-4 w-4" aria-hidden="true" />
           Preview
         </Button>
         <Button
           size="sm"
-          onClick={() => onUse(template)}
           className="flex-1"
+          onClick={() => onUse(template)}
         >
-          <Plus className="h-4 w-4 mr-1" />
-          Use Template
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+          Use template
         </Button>
       </CardFooter>
     </Card>
